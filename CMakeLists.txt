@@ -11,7 +11,7 @@ if (NOT APPLE)
 endif()
 
 if (WIN32)
-    message("Win32")
+    message("-- Win32 --")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
 endif ()
@@ -27,13 +27,15 @@ add_subdirectory(extern/fmt EXCLUDE_FROM_ALL)
 # Get betaflight sources:
 add_subdirectory(extern/)
 
-#set(SOURCE_FILES
-#    ${CMAKE_CURRENT_SOURCE_DIR}/src/simulator.cpp)
+set(SOURCE_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.cpp
+)
 
 add_library(libsim OBJECT ${BETAFLIGHT_SOURCES} ${SOURCE_FILES})
 target_compile_features(libsim PUBLIC cxx_std_17)
 
-target_compile_definitions(libsim PUBLIC "__TARGET__=\"SIMFLIGHT\"")
+#target_compile_definitions(libsim PUBLIC "SITL")
+target_compile_definitions(libsim PUBLIC "__TARGET__=\"SITL\"")
 target_compile_definitions(libsim PUBLIC "__REVISION__=\"TODO\"")
 
 target_compile_definitions(libsim PUBLIC SIMULATOR_BUILD)
@@ -45,16 +47,25 @@ target_include_directories(libsim PUBLIC extern)
 target_include_directories(libsim PUBLIC extern/src/)
 target_include_directories(libsim PUBLIC extern/betaflight/lib/main/dyad)
 target_include_directories(libsim PUBLIC extern/betaflight/src/main)
-target_include_directories(libsim PUBLIC extern/betaflight/src/main/target/SITL)
+
+#target_include_directories(libsim PUBLIC extern/betaflight/src/main/target)
+#target_include_directories(libsim PUBLIC extern/betaflight/src/main/target/SITL)
+#target_include_directories(libsim PUBLIC extern/betaflight/src/main/startup)
+#target_include_directories(libsim PUBLIC extern/betaflight/src/main/common)
 
 target_include_directories(libsim PUBLIC extern/kissnet)
 
 target_link_libraries(libsim PUBLIC fmt-header-only)
 
-#add_executable(SimFlight
-#    src/main.cpp $<TARGET_OBJECTS:libsim>) # ${SOURCE_FILES}) #${BETAFLIGHT_SOURCES})
+add_executable(SimFlight
+  src/main.c $<TARGET_OBJECTS:libsim>
+)
 
-#target_link_libraries(SimFlight PUBLIC libsim)
+
+target_link_libraries(SimFlight PUBLIC 
+  libsim
+  #-lpthread
+)
 
 if (WIN32)
   target_link_libraries(SimFlight PUBLIC wsock32 ws2_32)
