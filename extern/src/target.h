@@ -29,7 +29,11 @@
 
 #define TARGET_BOARD_IDENTIFIER "SITL"
 
-#define SIMULATOR_MULTITHREAD
+#ifdef __MINGW32__
+  #define ffs __builtin_ffs
+#endif
+
+//#define SIMULATOR_MULTITHREAD
 
 // use simulatior's attitude directly
 // disable this if wants to test AHRS algorithm
@@ -130,6 +134,9 @@
 #undef USE_BRUSHED_ESC_AUTODETECT
 #undef USE_SERIAL_4WAY_BLHELI_BOOTLOADER
 #undef USE_SERIAL_4WAY_SK_BOOTLOADER
+
+// cli register dump ?
+#undef USE_GYRO_REGISTER_DUMP
 
 #undef USE_I2C
 #undef USE_SPI

@@ -24,6 +24,8 @@ namespace bf {
     #include "drivers/pwm_output.h"
     //#include "drivers/pwm_output_fake.h"
 
+    //added, not sure if needed
+    #include "rx/rx.h"
     #include "rx/msp.h"
 
     //#include "io/displayport_fake.h"
@@ -129,6 +131,8 @@ void Simulator::set_gyro(const StatePacket& state,
 }
 */
 
+//TODO: fix ?
+/*
 float Sim::motor_torque(float volts, float rpm) {
     auto current =
       (volts - rpm / init_packet.motor_kv.value) / init_packet.motor_R.value;
@@ -160,6 +164,7 @@ float Sim::prop_thrust(float rpm, float vel) {
 float Sim::prop_torque(float rpm, float vel) {
     return prop_thrust(rpm, vel) * init_packet.prop_torque_factor.value;
 }
+*/
 
 //TODO: fix ?
 /*
@@ -293,7 +298,7 @@ Sim::Sim()
 }
 
 Sim& Sim::getInstance() {
-    static Simulator simulator;
+    static Sim simulator;
     return simulator;
 }
 
@@ -320,12 +325,17 @@ void Sim::connect() {
     bf::init();
 
     fmt::print("Done, sending true\n\n");
+    //TODO: fix ?
+    /*
     BoolT t;
     t.value = true;
     send_socket.send(reinterpret_cast<const std::byte*>(&t), sizeof(BoolT));
+    */
 }
 
 bool Sim::step() {
+  //TODO: fix ?
+  /*
     auto stateOrStop = receive<StatePacket, true>(recv_socket);
     if (!stateOrStop) {
         return false;
@@ -383,6 +393,7 @@ bool Sim::step() {
         update.linearVelocity.value = state.linearVelocity.value;
         send(send_socket, update);
     }
+    */
 
     return true;
 }
@@ -410,6 +421,11 @@ extern "C" {
       printf("[system] ResetToBootloader!\n");
 
       exit(1);
+  }
+
+  uint64_t micros64(void)
+  {
+      return Sim::getInstance().micros_passed;
   }
 
   uint32_t micros(void) {

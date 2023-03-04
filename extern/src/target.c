@@ -55,7 +55,7 @@ const timerHardware_t timerHardware[1]; // unused
 #include "rx/rx.h"
 
 #include "dyad.h"
-#include "target/SITL/udplink.h"
+//#include "target/SITL/udplink.h"
 
 uint32_t SystemCoreClock;
 
@@ -64,17 +64,18 @@ static servo_packet pwmPkt;
 
 static struct timespec start_time;
 static double simRate = 1.0;
-static pthread_t tcpWorker, udpWorker;
+//static pthread_t tcpWorker, udpWorker;
 static bool workerRunning = true;
-static udpLink_t stateLink, pwmLink;
-static pthread_mutex_t updateLock;
-static pthread_mutex_t mainLoopLock;
+//static udpLink_t stateLink, pwmLink;
+//static pthread_mutex_t updateLock;
+//static pthread_mutex_t mainLoopLock;
 
 int timeval_sub(struct timespec *result, struct timespec *x, struct timespec *y);
 
 int lockMainPID(void)
 {
-    return pthread_mutex_trylock(&mainLoopLock);
+    //return pthread_mutex_trylock(&mainLoopLock);
+    return 0;
 }
 
 #define RAD2DEG (180.0 / M_PI)
@@ -82,7 +83,8 @@ int lockMainPID(void)
 #define GYRO_SCALE (16.4)
 void sendMotorUpdate(void)
 {
-    udpSend(&pwmLink, &pwmPkt, sizeof(servo_packet));
+    //TODO: fix ?
+    //udpSend(&pwmLink, &pwmPkt, sizeof(servo_packet));
 }
 void updateState(const fdm_packet* pkt)
 {
@@ -94,7 +96,7 @@ void updateState(const fdm_packet* pkt)
     //struct timespec now_ts;
     //clock_gettime(CLOCK_MONOTONIC, &now_ts);
 
-    const uint64_t realtime_now = micros64_real();
+    const uint64_t realtime_now = micros64();
     if (realtime_now > last_realtime + 500*1e3) { // 500ms timeout
         last_timestamp = pkt->timestamp;
         last_realtime = realtime_now;
@@ -167,16 +169,16 @@ void updateState(const fdm_packet* pkt)
 //    printf("simRate = %lf, millis64 = %lu, millis64_real = %lu, deltaSim = %lf\n", simRate, millis64(), millis64_real(), deltaSim*1e6);
 
     last_timestamp = pkt->timestamp;
-    last_realtime = micros64_real();
+    last_realtime = micros64();
 
     //TODO: fix ?
     //last_ts.tv_sec = now_ts.tv_sec;
     //last_ts.tv_nsec = now_ts.tv_nsec;
 
-    pthread_mutex_unlock(&updateLock); // can send PWM output now
+    //pthread_mutex_unlock(&updateLock); // can send PWM output now
 
 #if defined(SIMULATOR_GYROPID_SYNC)
-    pthread_mutex_unlock(&mainLoopLock); // can run main loop
+    //pthread_mutex_unlock(&mainLoopLock); // can run main loop
 #endif
 }
 
@@ -186,11 +188,14 @@ static void* udpThread(void* data)
     int n = 0;
 
     while (workerRunning) {
+      //TODO: fix?
+      /*
         n = udpRecv(&stateLink, &fdmPkt, sizeof(fdm_packet), 100);
         if (n == sizeof(fdm_packet)) {
 //            printf("[data]new fdm %d\n", n);
             updateState(&fdmPkt);
         }
+        */
     }
 
     printf("udpThread end!!\n");
@@ -215,6 +220,7 @@ static void* tcpThread(void* data)
 }
 
 // system
+/*
 void systemInit(void)
 {
     int ret;
@@ -273,6 +279,7 @@ void systemResetToBootloader(bootloaderRequestType_e requestType)
     pthread_join(udpWorker, NULL);
     exit(0);
 }
+*/
 
 void timerInit(void)
 {
@@ -295,6 +302,7 @@ void indicateFailure(failureMode_e mode, int repeatCount)
     printf("Failure LED flash for: [failureMode]!!! %d\n", mode);
 }
 
+/*
 uint64_t micros64(void)
 {
     static uint64_t last = 0;
@@ -330,6 +338,7 @@ uint32_t millis(void)
 {
     return millis64() & 0xFFFFFFFF;
 }
+*/
 
 int32_t clockCyclesToMicros(int32_t clockCycles)
 {
@@ -350,6 +359,7 @@ uint32_t getCycleCounter(void)
     return (uint32_t) (micros64() & 0xFFFFFFFF);
 }
 
+/*
 void microsleep(uint32_t usec)
 {
     struct timespec ts;
@@ -378,6 +388,7 @@ void delay(uint32_t ms)
         microsleep(1000);
     }
 }
+*/
 
 // Subtract the ‘struct timespec’ values X and Y,  storing the result in RESULT.
 // Return 1 if the difference is negative, otherwise 0.
@@ -485,8 +496,9 @@ static void pwmCompleteMotorUpdate(void)
     pwmPkt.motor_speed[2] = motorsPwm[3] / outScale;
 
     // get one "fdm_packet" can only send one "servo_packet"!!
-    if (pthread_mutex_trylock(&updateLock) != 0) return;
-    udpSend(&pwmLink, &pwmPkt, sizeof(servo_packet));
+    //TODO: fix ?
+    //if (pthread_mutex_trylock(&updateLock) != 0) return;
+    //udpSend(&pwmLink, &pwmPkt, sizeof(servo_packet));
 //    printf("[pwm]%u:%u,%u,%u,%u\n", idlePulse, motorsPwm[0], motorsPwm[1], motorsPwm[2], motorsPwm[3]);
 }
 

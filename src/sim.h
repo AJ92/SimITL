@@ -15,16 +15,15 @@
 #include <fmt/format.h>
 #include <kissnet.hpp>
 
-
 class Sim {
-   public:
+  public:
     struct MotorState {
         vmath::vec3 position = {0, 0, 0};
         float rpm = 0;
         float thrust = 0;
     };
 
-   private:
+  private:
 
     //InitPacket init_packet;
 
@@ -40,12 +39,14 @@ class Sim {
 
     //static void update_rotation(float dt, StatePacket& state);
 
+/*
     float motor_torque(float volts, float rpm);
     float prop_thrust(float rpm, float vel);
     float prop_torque(float rpm, float vel);
+*/
 
     // protected for testing
-   protected:
+  protected:
 
   /*
     void set_gyro(const StatePacket& state, const vmath::vec3& acceleration);
@@ -64,7 +65,7 @@ class Sim {
 
     Sim();
 
-   public:
+  public:
     uint64_t micros_passed = 0;
     int64_t sleep_timer = 0;
 

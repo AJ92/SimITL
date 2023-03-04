@@ -34,7 +34,7 @@ set(SOURCE_FILES
 add_library(libsim OBJECT ${BETAFLIGHT_SOURCES} ${SOURCE_FILES})
 target_compile_features(libsim PUBLIC cxx_std_17)
 
-#target_compile_definitions(libsim PUBLIC "SITL")
+target_compile_definitions(libsim PUBLIC "SITL")
 target_compile_definitions(libsim PUBLIC "__TARGET__=\"SITL\"")
 target_compile_definitions(libsim PUBLIC "__REVISION__=\"TODO\"")
 
@@ -48,17 +48,12 @@ target_include_directories(libsim PUBLIC extern/src/)
 target_include_directories(libsim PUBLIC extern/betaflight/lib/main/dyad)
 target_include_directories(libsim PUBLIC extern/betaflight/src/main)
 
-#target_include_directories(libsim PUBLIC extern/betaflight/src/main/target)
-#target_include_directories(libsim PUBLIC extern/betaflight/src/main/target/SITL)
-#target_include_directories(libsim PUBLIC extern/betaflight/src/main/startup)
-#target_include_directories(libsim PUBLIC extern/betaflight/src/main/common)
-
 target_include_directories(libsim PUBLIC extern/kissnet)
 
 target_link_libraries(libsim PUBLIC fmt-header-only)
 
 add_executable(SimFlight
-  src/main.c $<TARGET_OBJECTS:libsim>
+  src/main.cpp $<TARGET_OBJECTS:libsim>
 )
 
 
