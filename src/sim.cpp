@@ -22,13 +22,13 @@ namespace bf {
 
     #include "drivers/accgyro/accgyro_fake.h"
     #include "drivers/pwm_output.h"
-    //#include "drivers/pwm_output_fake.h"
+    #include "drivers/pwm_output_fake.h"
 
     //added, not sure if needed
     #include "rx/rx.h"
     #include "rx/msp.h"
 
-    //#include "io/displayport_fake.h"
+    #include "io/displayport_fake.h"
     #include "io/gps.h"
 
     #include "src/target.h"
@@ -41,6 +41,29 @@ namespace bf {
   }
 }  // namespace bf
 
+void copy(vmath::vec3& out, const Vec3F& in){
+  out[0] = in.x;
+  out[1] = in.y;
+  out[2] = in.z;
+}
+
+void copy(vmath::mat3& out, const Vec3F* in){
+  for(int i = 0; i < 3; i++){
+    copy(out[i], in[i]);
+  }
+}
+
+void copy(Vec3F& out, const vmath::vec3& in){
+  out.x = in[0];
+  out.y = in[1];
+  out.z = in[2];
+}
+
+void copy(Vec3F* out, const vmath::mat3& in){
+  for(int i = 0; i < 3; i++){
+    copy(out[i], in[i]);
+  }
+}
 
 #define USE_QUAT_ORIENTATION
 
@@ -60,19 +83,23 @@ const auto AIR_RHO = 1.225f;
 const auto FREQUENCY = 20e3;
 const auto DELTA = 1e6 / FREQUENCY;
 
-//TODO: fix ?
-/*
-void Simulator::set_gyro(const StatePacket& state,
+void Sim::set_gyro(const StatePacket& state,
                          const vmath::vec3& acceleration) {
     using namespace vmath;
-    mat3 basis = state.rotation.value;
+    mat3 basis;
+    copy(basis, state.rotation);
 
-    vec3 pos = state.position.value;
+    vec3 pos;
+    copy(pos, state.position);
+
+
     quat rotation = mat3_to_quat(basis);
-    vec3 gyro = xform_inv(basis, state.angularVelocity.value);
+    vec3 angularVelocity;
+    copy(angularVelocity, state.angularVelocity);
+    vec3 gyro = xform_inv(basis, angularVelocity);
 
     vec3 accelerometer =
-      xform_inv(basis, acceleration) / init_packet.quad_mass.value;
+      xform_inv(basis, acceleration) / initPacket.quadMass;
 
     int16_t x, y, z;
     if (bf::sensors(bf::SENSOR_ACC)) {
@@ -122,36 +149,35 @@ void Simulator::set_gyro(const StatePacket& state,
              DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS)) +
           43551050;
         bf::gpsSol.llh.altCm = int32_t(pos[1] * 100);
+        vec3 linearVelocity;
+        copy(linearVelocity, state.linearVelocity);
         bf::gpsSol.groundSpeed =
-          uint16_t(length(state.linearVelocity.value) * 100);
+          uint16_t(length(linearVelocity) * 100);
         bf::GPS_update |= bf::GPS_MSP_UPDATE;
 
         last_millis = millis;
     }
 }
-*/
 
-//TODO: fix ?
-/*
 float Sim::motor_torque(float volts, float rpm) {
     auto current =
-      (volts - rpm / init_packet.motor_kv.value) / init_packet.motor_R.value;
+      (volts - rpm / initPacket.motorKV) / initPacket.motorR;
 
     if (current > 0)
-        current = std::max(0.0f, current - init_packet.motor_I0.value);
+        current = std::max(0.0f, current - initPacket.motorI0);
     else if (current < 0)
-        current = std::min(0.0f, current + init_packet.motor_I0.value);
-    return current * 60 / (init_packet.motor_kv.value * 2.0f * float(M_PI));
+        current = std::min(0.0f, current + initPacket.motorI0);
+    return current * 60 / (initPacket.motorKV * 2.0f * float(M_PI));
 }
 
 float Sim::prop_thrust(float rpm, float vel) {
     using namespace vmath;
     // max thrust vs velocity:
-    auto propF = init_packet.prop_thrust_factors.value[0].value * vel * vel +
-                 init_packet.prop_thrust_factors.value[1].value * vel +
-                 init_packet.prop_thrust_factors.value[2].value;
-    const auto max_rpm = init_packet.prop_max_rpm.value;
-    const auto prop_a = init_packet.prop_a_factor.value;
+    auto propF = initPacket.propThrustFactor.x * vel * vel +
+                 initPacket.propThrustFactor.y * vel +
+                 initPacket.propThrustFactor.z;
+    const auto max_rpm = initPacket.propMaxRpm;
+    const auto prop_a = initPacket.propAFactor;
     propF = std::max(0.0f, propF);
 
     // thrust vs rpm (and max thrust)
@@ -162,12 +188,10 @@ float Sim::prop_thrust(float rpm, float vel) {
 }
 
 float Sim::prop_torque(float rpm, float vel) {
-    return prop_thrust(rpm, vel) * init_packet.prop_torque_factor.value;
+    return prop_thrust(rpm, vel) * initPacket.propTorqueFactor;
 }
-*/
 
-//TODO: fix ?
-/*
+
 float Sim::calculate_motors(float dt,
                                   const StatePacket& state,
                                   std::array<MotorState, 4>& motors) {
@@ -177,26 +201,32 @@ float Sim::calculate_motors(float dt,
 
     float resPropTorque = 0;
 
-    const auto up = get_axis(state.rotation.value, 1);
+    mat3 rotation;
+    copy(rotation, state.rotation);
+    const auto up = get_axis(rotation, 1);
 
     for (int i = 0; i < 4; i++) {
         // const auto r = xform(state.rotation.value, motors[i].position);
-        const auto linVel = state.linearVelocity.value;
+        vec3 linVel;
+        copy(linVel, state.linearVelocity);
         const auto vel = std::max(0.0f, dot(linVel, up));
 
         auto rpm = motors[i].rpm;
 
+        //prevent division by 0
+        float vbat = std::max(1.0f, initPacket.quadVbat);
+
         const auto volts =
-          bf::motorsPwm[i] / 1000.0f * init_packet.quad_vbat.value;
+          bf::motorsPwm[i] / 1000.0f * vbat;
         const auto torque = motor_torque(volts, rpm);
 
         const auto ptorque = prop_torque(rpm, vel);
         const auto net_torque = torque - ptorque;
-        const auto domega = net_torque / init_packet.prop_inertia.value;
+        const auto domega = net_torque / initPacket.propInertia;
         const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
 
-        const auto kv = init_packet.motor_kv.value;
-        const auto maxdrpm = fabsf(volts * init_packet.motor_kv.value - rpm);
+        const auto kv = initPacket.motorKV;
+        const auto maxdrpm = fabsf(volts * initPacket.motorKV - rpm);
         rpm += clamp(drpm, -maxdrpm, maxdrpm);
 
         motors[i].thrust = prop_thrust(rpm, vel);
@@ -206,196 +236,218 @@ float Sim::calculate_motors(float dt,
 
     return resPropTorque;
 }
-*/
 
-/*
 void Sim::update_rotation(float dt, StatePacket& state) {
     using namespace vmath;
-    const auto w = state.angularVelocity.value * dt;
+    vec3 angularVelocity;
+    copy(angularVelocity, state.angularVelocity);
+    const auto w = angularVelocity * dt;
     const mat3 W = {
       vec3{1, -w[2], w[1]}, vec3{w[2], 1, -w[0]}, vec3{-w[1], w[0], 1}};
-    state.rotation.value = W * state.rotation.value;
+    
+    mat3 rotation;
+    copy(rotation, state.rotation);
+    rotation = W * rotation;
+    copy(state.rotation, rotation);
 }
-*/
 
-//TODO: fix ?
-/*
 vmath::vec3 Sim::calculate_physics(
   float dt,
   StatePacket& state,
   const std::array<MotorState, 4>& motors,
-  float motorsTorque) {
+  float motorsTorque
+) {
     using namespace vmath;
     vec3 acceleration;
 
-    auto gravity_force = vec3{0, -9.81f * init_packet.quad_mass.value, 0};
+    auto gravity_force = vec3{0, -9.81f * initPacket.quadMass, 0};
 
     // force sum:
     vec3 total_force = gravity_force;
 
     // drag:
-    float vel2 = length2(state.linearVelocity.value);
-    auto dir = normalize(state.linearVelocity.value);
-    auto local_dir = xform_inv(state.rotation.value, dir);
-    float area = dot(init_packet.frame_drag_area.value, abs(local_dir));
+    vec3 linearVelocity;
+    copy(linearVelocity, state.linearVelocity);
+
+    float vel2 = length2(linearVelocity);
+    auto dir = normalize(linearVelocity);
+
+    mat3 rotation;
+    copy(rotation, state.rotation);
+    auto local_dir = xform_inv(rotation, dir);
+
+    vec3 frameDragArea;
+    copy(frameDragArea, initPacket.frameDragArea);
+    float area = dot(frameDragArea, abs(local_dir));
+
     total_force = total_force - dir * 0.5 * AIR_RHO * vel2 *
-                                  init_packet.frame_drag_constant.value * area;
+                                  initPacket.frameDragConstant * area;
 
     // motors:
     for (auto i = 0u; i < 4; i++) {
         total_force = total_force +
-                      xform(state.rotation.value, vec3{0, motors[i].thrust, 0});
+                      xform(rotation, vec3{0, motors[i].thrust, 0});
     }
 
-    acceleration = total_force / init_packet.quad_mass.value;
-    state.linearVelocity.value = state.linearVelocity.value + acceleration * dt;
 
-    assert(std::isfinite(length(state.linearVelocity.value)));
+    //acc is nan, cause total force is nan
+    acceleration = total_force / initPacket.quadMass;
+
+    linearVelocity = linearVelocity + acceleration * dt;
+    copy(state.linearVelocity, linearVelocity);
+
+    /*
+    fmt::print("linearVelocity x: {}, y: {}, z: {}\n",
+                       linearVelocity[0],
+                       linearVelocity[1],
+                       linearVelocity[2]);
+    */
+    assert(std::isfinite(length(linearVelocity)));
 
     // moment sum around origin:
-    vec3 total_moment = get_axis(state.rotation.value, 1) * motorsTorque;
+    vec3 total_moment = get_axis(rotation, 1) * motorsTorque;
 
     for (auto i = 0u; i < 4; i++) {
-        auto force = xform(state.rotation.value, {0, motors[i].thrust, 0});
-        auto rad = xform(state.rotation.value, motors[i].position);
+        auto force = xform(rotation, {0, motors[i].thrust, 0});
+        auto rad = xform(rotation, motors[i].position);
         total_moment = total_moment + cross(rad, force);
     }
 
-    vec3 inv_inertia = init_packet.quad_inv_inertia.value;
+    vec3 inv_inertia;
+    copy(inv_inertia, initPacket.quadInvInertia);
     mat3 inv_tensor = {vec3{inv_inertia[0], 0, 0},
                        vec3{0, inv_inertia[1], 0},
                        vec3{0, 0, inv_inertia[2]}};
     inv_tensor =
-      state.rotation.value * inv_tensor * transpose(state.rotation.value);
+      rotation * inv_tensor * transpose(rotation);
     vec3 angularAcc = xform(inv_tensor, total_moment);
     assert(std::isfinite(angularAcc[0]) && std::isfinite(angularAcc[1]) &&
            std::isfinite(angularAcc[2]));
-    state.angularVelocity.value = state.angularVelocity.value + angularAcc * dt;
 
-    //TODO: fix ?
-    //update_rotation(dt, state);
+    vec3 angularVelocity;
+    copy(angularVelocity, state.angularVelocity);
+    angularVelocity = angularVelocity + angularAcc * dt;
+    copy(state.angularVelocity, angularVelocity);
+
+    update_rotation(dt, state);
 
     return acceleration;
 }
-*/
 
-//TODO: fix ?
-/*
-void Sim::set_rc_data(std::array<FloatT, 8> data) {
-    std::array<uint16_t, 8> rcData;
-    for (int i = 0; i < 8; i++) {
-        rcData[i] = uint16_t(1500 + data[i].value * 500);
-    }
 
-    bf::rxMspFrameReceive(&rcData[0], 8);
+void Sim::set_rc_data(float data[8]) {
+  std::array<uint16_t, 8> rcData;
+  for (int i = 0; i < 8; i++) {
+    rcData[i] = uint16_t(1500 + data[i] * 500);
+  }
+
+  bf::rxMspFrameReceive(&rcData[0], 8);
 }
-*/
 
 Sim::Sim()
-    : recv_socket(kissnet::endpoint("localhost", 7777)),
-      send_socket(kissnet::endpoint("localhost", 6666)) {
-    recv_socket.bind();
+  : recv_socket(kissnet::endpoint("localhost", 7777))
+  , send_socket(kissnet::endpoint("localhost", 6666)) 
+{
+  recv_socket.bind();
 }
 
 Sim& Sim::getInstance() {
-    static Sim simulator;
-    return simulator;
+  static Sim simulator;
+  return simulator;
 }
 
 Sim::~Sim() {
-    dyad_shutdown();
+  dyad_shutdown();
 }
 
 void Sim::connect() {
-    fmt::print("Waiting for init packet\n");
+  fmt::print("Waiting for init packet\n");
 
-  //TODO: fix ?
-   // init_packet = receive<InitPacket>(recv_socket);
+  initPacket = receive<InitPacket>(recv_socket);
 
-    for (auto i = 0u; i < 4; i++) {
-      //TODO: fix ?
-      //motorsState[i].position = init_packet.quad_motor_pos.value[i].value;
-    }
+  for (auto i = 0u; i < 4; i++) {
+    motorsState[i].position[0] = initPacket.quadMotorPos[i].x;
+    motorsState[i].position[1] = initPacket.quadMotorPos[i].y;
+    motorsState[i].position[2] = initPacket.quadMotorPos[i].z;
+  }
 
-    fmt::print("Initializing dyad\n");
-    dyad_init();
-    dyad_setUpdateTimeout(0.001);
+  fmt::print("Initializing dyad\n");
+  dyad_init();
+  dyad_setUpdateTimeout(0.001);
 
-    fmt::print("Initializing betaflight\n");
-    bf::init();
+  fmt::print("Initializing betaflight\n");
+  bf::init();
 
-    fmt::print("Done, sending true\n\n");
-    //TODO: fix ?
-    /*
-    BoolT t;
-    t.value = true;
-    send_socket.send(reinterpret_cast<const std::byte*>(&t), sizeof(BoolT));
-    */
+  fmt::print("Done, sending response\n\n");
+  //sending the same package back for verification...
+  send_socket.send(reinterpret_cast<const std::byte*>(&initPacket), sizeof(InitPacket));
 }
 
 bool Sim::step() {
-  //TODO: fix ?
-  /*
-    auto stateOrStop = receive<StatePacket, true>(recv_socket);
-    if (!stateOrStop) {
-        return false;
-    }
-    auto state = *stateOrStop;
-
-    const auto deltaMicros = int(state.delta.value * 1e6);
-    total_delta += deltaMicros;
-
-    // const auto last = hr_clock::now();
-
-    dyad_update();
-
-    // auto dyad_time = hr_clock::now() - last;
-    // long long dyad_time_i = to_us(dyad_time);
-
-    // update rc at 100Hz, otherwise rx loss gets reported:
-    set_rc_data(state.rcData.value);
-
-    for (auto k = 0u; total_delta - DELTA >= 0; k++) {
-        total_delta -= DELTA;
-        micros_passed += DELTA;
-        const float dt = DELTA / 1e6f;
-
-        set_gyro(state, acceleration);
-
-        if (sleep_timer > 0) {
-            sleep_timer -= DELTA;
-            sleep_timer = std::max(int64_t(0), sleep_timer);
-        } else {
-            bf::scheduler();
-        }
-
-        if (state.crashed.value) continue;
-
-        float motorsTorque = calculate_motors(dt, state, motorsState);
-
-        acceleration = calculate_physics(dt, state, motorsState, motorsTorque);
-    }
-
-    if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
-        last_osd_time = micros_passed;
-        StateOsdUpdatePacket update;
-        update.angularVelocity.value = state.angularVelocity.value;
-        update.linearVelocity.value = state.linearVelocity.value;
-        for (int y = 0; y < VIDEO_LINES; y++) {
-            for (int x = 0; x < CHARS_PER_LINE; x++) {
-                update.osd.value[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
-            }
-        }
-        send(send_socket, update);
-    } else {
-        StateUpdatePacket update;
-        update.angularVelocity.value = state.angularVelocity.value;
-        update.linearVelocity.value = state.linearVelocity.value;
-        send(send_socket, update);
-    }
-    */
-
+  auto state = receive<StatePacket>(recv_socket);
+  if (state.type == PacketType::Error) {
+    fmt::print("Error receiving packet\n");
     return true;
+  }
+
+  if((state.commands & CommandType::Stop) == CommandType::Stop){
+    fmt::print("Stop command received\n");
+    return false;
+  }
+
+  const auto deltaMicros = int(state.delta * 1e6);
+  total_delta += deltaMicros;
+
+  // const auto last = hr_clock::now();
+
+  dyad_update();
+
+  // auto dyad_time = hr_clock::now() - last;
+  // long long dyad_time_i = to_us(dyad_time);
+
+  // update rc at 100Hz, otherwise rx loss gets reported:
+  set_rc_data(state.rcData);
+
+  for (auto k = 0u; total_delta - DELTA >= 0; k++) {
+    total_delta -= DELTA;
+    micros_passed += DELTA;
+    const float dt = DELTA / 1e6f;
+
+    set_gyro(state, acceleration);
+
+    if (sleep_timer > 0) {
+      sleep_timer -= DELTA;
+      sleep_timer = std::max(int64_t(0), sleep_timer);
+    } else {
+      bf::scheduler();
+    }
+
+    if (state.crashed > 0) continue;
+
+    float motorsTorque = calculate_motors(dt, state, motorsState);
+
+    acceleration = calculate_physics(dt, state, motorsState, motorsTorque);
+  }
+
+  if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
+    last_osd_time = micros_passed;
+    StateOsdUpdatePacket update;
+    update.angularVelocity = state.angularVelocity;
+    update.linearVelocity = state.linearVelocity;
+    for (int y = 0; y < VIDEO_LINES; y++) {
+      for (int x = 0; x < CHARS_PER_LINE; x++) {
+        update.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
+      }
+    }
+    send_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateOsdUpdatePacket));
+  } else {
+    StateUpdatePacket update;
+    update.angularVelocity = state.angularVelocity;
+    update.linearVelocity = state.linearVelocity;
+    send_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
+  }
+
+  return true;
 }
 
 /*********************
@@ -408,7 +460,7 @@ extern "C" {
       printf("[system] Init...\n");
 
       bf::SystemCoreClock = 500 * 1000000;  // fake 500MHz
-      bf::FLASH_Unlock();
+      //bf::FLASH_Unlock();
   }
 
   void systemReset(void) {

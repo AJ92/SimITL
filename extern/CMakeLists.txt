@@ -32,6 +32,8 @@ set(BETAFLIGHT_SOURCES
   pg/msp.c
   pg/stats.c
   pg/rcdevice.c
+  pg/gps.c
+  pg/gps_rescue.c
 
   config/config.c
   config/feature.c
@@ -50,6 +52,8 @@ set(BETAFLIGHT_SOURCES
   drivers/buf_writer.c
   drivers/stack_check.c
   drivers/io.c
+  drivers/display.c
+
 
   fc/init.c
 
@@ -93,12 +97,14 @@ set(BETAFLIGHT_SOURCES
   flight/pid_init.c
   flight/position.c
   flight/feedforward.c
+  flight/gps_rescue.c
 
   io/serial.c
   io/beeper.c
   io/statusindicator.c
   io/rcdevice_cam.c
   io/rcdevice.c
+  io/gps.c
 
   msp/msp.c
   msp/msp_box.c
@@ -120,6 +126,7 @@ file(GLOB BETAFLIGHT_G_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/drivers/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/io/*.c"
 )
 
 set(BETAFLIGHT_SOURCES 

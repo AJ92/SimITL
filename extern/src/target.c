@@ -561,7 +561,7 @@ static FILE *eepromFd = NULL;
 void FLASH_Unlock(void)
 {
     if (eepromFd != NULL) {
-        fprintf(stderr, "[FLASH_Unlock] eepromFd != NULL\n");
+        fprintf(stderr, "[sim FLASH_Unlock] eepromFd != NULL\n");
         return;
     }
 
@@ -575,19 +575,20 @@ void FLASH_Unlock(void)
 
         size_t n = fread(eepromData, 1, sizeof(eepromData), eepromFd);
         if (n == lSize) {
-            printf("[FLASH_Unlock] loaded '%s', size = %ld / %ld\n", EEPROM_FILENAME, lSize, sizeof(eepromData));
+            printf("[sim FLASH_Unlock] loaded '%s', size = %ld / %ld\n", EEPROM_FILENAME, lSize, sizeof(eepromData));
         } else {
-            fprintf(stderr, "[FLASH_Unlock] failed to load '%s'\n", EEPROM_FILENAME);
+            fprintf(stderr, "[sim FLASH_Unlock] failed to load '%s'\n", EEPROM_FILENAME);
+            fprintf(stderr, "--> n = %ld, size = %ld / %ld\n", n, lSize, sizeof(eepromData));
             return;
         }
     } else {
-        printf("[FLASH_Unlock] created '%s', size = %ld\n", EEPROM_FILENAME, sizeof(eepromData));
+        printf("[sim FLASH_Unlock] created '%s', size = %ld\n", EEPROM_FILENAME, sizeof(eepromData));
         if ((eepromFd = fopen(EEPROM_FILENAME, "w+")) == NULL) {
-            fprintf(stderr, "[FLASH_Unlock] failed to create '%s'\n", EEPROM_FILENAME);
+            fprintf(stderr, "[sim FLASH_Unlock] failed to create '%s'\n", EEPROM_FILENAME);
             return;
         }
         if (fwrite(eepromData, sizeof(eepromData), 1, eepromFd) != 1) {
-            fprintf(stderr, "[FLASH_Unlock] write failed: %s\n", strerror(errno));
+            fprintf(stderr, "[sim FLASH_Unlock] write failed: %s\n", strerror(errno));
         }
     }
 }
@@ -600,16 +601,16 @@ void FLASH_Lock(void)
         fwrite(eepromData, 1, sizeof(eepromData), eepromFd);
         fclose(eepromFd);
         eepromFd = NULL;
-        printf("[FLASH_Lock] saved '%s'\n", EEPROM_FILENAME);
+        printf("[sim FLASH_Lock] saved '%s'\n", EEPROM_FILENAME);
     } else {
-        fprintf(stderr, "[FLASH_Lock] eeprom is not unlocked\n");
+        fprintf(stderr, "[sim FLASH_Lock] eeprom is not unlocked\n");
     }
 }
 
 FLASH_Status FLASH_ErasePage(uintptr_t Page_Address)
 {
     UNUSED(Page_Address);
-//    printf("[FLASH_ErasePage]%x\n", Page_Address);
+//    printf("[sim FLASH_ErasePage]%x\n", Page_Address);
     return FLASH_COMPLETE;
 }
 
@@ -617,9 +618,9 @@ FLASH_Status FLASH_ProgramWord(uintptr_t addr, uint32_t value)
 {
     if ((addr >= (uintptr_t)eepromData) && (addr < (uintptr_t)ARRAYEND(eepromData))) {
         *((uint32_t*)addr) = value;
-        printf("[FLASH_ProgramWord]%p = %08x\n", (void*)addr, *((uint32_t*)addr));
+        //printf("[sim FLASH_ProgramWord]%p = %08x\n", (void*)addr, *((uint32_t*)addr));
     } else {
-            printf("[FLASH_ProgramWord]%p out of range!\n", (void*)addr);
+            printf("[sim FLASH_ProgramWord]%p out of range!\n", (void*)addr);
     }
     return FLASH_COMPLETE;
 }
