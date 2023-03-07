@@ -65,6 +65,10 @@ protected:
 public:
   uint64_t micros_passed = 0;
   int64_t sleep_timer = 0;
+  int64_t rx_state = 0;
+
+  uint16_t rc_data[16] {};
+  int armingDisabledFlags = 0;
 
   static Sim& getInstance();
 

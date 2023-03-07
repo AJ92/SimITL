@@ -23,17 +23,18 @@ set(BETAFLIGHT_SOURCES
   common/typeconversion.c
   #common/string_light.c
 
-  pg/pg.c
-  pg/motor.c
-  pg/scheduler.c
-  pg/rx.c
-  pg/gyrodev.c
-  pg/board.c
-  pg/msp.c
-  pg/stats.c
-  pg/rcdevice.c
-  pg/gps.c
-  pg/gps_rescue.c
+  #pg/pg.c
+  #pg/motor.c
+  #pg/scheduler.c
+  #pg/rx.c
+  #pg/gyrodev.c
+  #pg/board.c
+  #pg/msp.c
+  #pg/stats.c
+  #pg/rcdevice.c
+  #pg/gps.c
+  #pg/gps_rescue.c
+  #pg/vcd.c
 
   config/config.c
   config/feature.c
@@ -43,6 +44,7 @@ set(BETAFLIGHT_SOURCES
 
   drivers/accgyro/accgyro_fake.c
   drivers/accgyro/gyro_sync.c
+  drivers/barometer/barometer_fake.c
   drivers/timer_common.c
   drivers/motor.c
   drivers/bus.c
@@ -53,11 +55,21 @@ set(BETAFLIGHT_SOURCES
   drivers/stack_check.c
   drivers/io.c
   drivers/display.c
+  drivers/light_led.c
+  drivers/max7456.c
+  drivers/pwm_esc_detect.c
+  drivers/rx/rx_pwm.c
+  drivers/mco.c
+  drivers/pinio.c
+  drivers/resource.c
+  drivers/sound_beeper.c
+  drivers/bus_i2c_busdev.c
+  drivers/bus_i2c_soft.c
 
 
   fc/init.c
 
-  scheduler/scheduler.c
+  #scheduler/scheduler.c
 
   rx/rx.c
   rx/msp.c
@@ -75,6 +87,7 @@ set(BETAFLIGHT_SOURCES
   sensors/voltage.c
   sensors/current.c
   sensors/adcinternal.c
+  sensors/esc_sensor.c
 
   fc/core.c
   fc/runtime_config.c
@@ -88,10 +101,12 @@ set(BETAFLIGHT_SOURCES
   fc/stats.c
   fc/dispatch.c
 
-  flight/mixer.c
   flight/failsafe.c
   flight/mixer.c
   flight/mixer_init.c
+  flight/mixer_tricopter.c
+  flight/servos.c
+  flight/servos_tricopter.c
   flight/imu.c
   flight/pid.c
   flight/pid_init.c
@@ -105,6 +120,7 @@ set(BETAFLIGHT_SOURCES
   io/rcdevice_cam.c
   io/rcdevice.c
   io/gps.c
+  io/displayport_max7456.c
 
   msp/msp.c
   msp/msp_box.c
@@ -123,10 +139,13 @@ set(BETAFLIGHT_SOURCES ${BETAFLIGHT_SOURCES}
 )
 
 file(GLOB BETAFLIGHT_G_SOURCES 
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflight/src/main/pg/*.c"
+
   "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/drivers/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/io/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/scheduler/*.c"
 )
 
 set(BETAFLIGHT_SOURCES 

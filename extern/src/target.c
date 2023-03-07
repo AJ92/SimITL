@@ -39,7 +39,10 @@
 #include "drivers/light_led.h"
 
 #include "drivers/timer.h"
-#include "drivers/timer_def.h"
+// up to 4.4.0
+//#include "drivers/timer_def.h"
+#include "timer_def.h"
+
 const timerHardware_t timerHardware[1]; // unused
 
 #include "drivers/accgyro/accgyro_fake.h"
@@ -59,9 +62,6 @@ const timerHardware_t timerHardware[1]; // unused
 
 uint32_t SystemCoreClock;
 
-static fdm_packet fdmPkt;
-static servo_packet pwmPkt;
-
 static struct timespec start_time;
 static double simRate = 1.0;
 //static pthread_t tcpWorker, udpWorker;
@@ -78,206 +78,16 @@ int lockMainPID(void)
     return 0;
 }
 
-#define RAD2DEG (180.0 / M_PI)
-#define ACC_SCALE (256 / 9.80665)
-#define GYRO_SCALE (16.4)
-void sendMotorUpdate(void)
-{
-    //TODO: fix ?
-    //udpSend(&pwmLink, &pwmPkt, sizeof(servo_packet));
-}
-void updateState(const fdm_packet* pkt)
-{
-    static double last_timestamp = 0; // in seconds
-    static uint64_t last_realtime = 0; // in uS
-    static struct timespec last_ts; // last packet
-
-    //TODO: fix?
-    //struct timespec now_ts;
-    //clock_gettime(CLOCK_MONOTONIC, &now_ts);
-
-    const uint64_t realtime_now = micros64();
-    if (realtime_now > last_realtime + 500*1e3) { // 500ms timeout
-        last_timestamp = pkt->timestamp;
-        last_realtime = realtime_now;
-        sendMotorUpdate();
-        return;
-    }
-
-    const double deltaSim = pkt->timestamp - last_timestamp;  // in seconds
-    if (deltaSim < 0) { // don't use old packet
-        return;
-    }
-
-    int16_t x,y,z;
-    x = constrain(-pkt->imu_linear_acceleration_xyz[0] * ACC_SCALE, -32767, 32767);
-    y = constrain(-pkt->imu_linear_acceleration_xyz[1] * ACC_SCALE, -32767, 32767);
-    z = constrain(-pkt->imu_linear_acceleration_xyz[2] * ACC_SCALE, -32767, 32767);
-    fakeAccSet(fakeAccDev, x, y, z);
-//    printf("[acc]%lf,%lf,%lf\n", pkt->imu_linear_acceleration_xyz[0], pkt->imu_linear_acceleration_xyz[1], pkt->imu_linear_acceleration_xyz[2]);
-
-    x = constrain(pkt->imu_angular_velocity_rpy[0] * GYRO_SCALE * RAD2DEG, -32767, 32767);
-    y = constrain(-pkt->imu_angular_velocity_rpy[1] * GYRO_SCALE * RAD2DEG, -32767, 32767);
-    z = constrain(-pkt->imu_angular_velocity_rpy[2] * GYRO_SCALE * RAD2DEG, -32767, 32767);
-    fakeGyroSet(fakeGyroDev, x, y, z);
-//    printf("[gyr]%lf,%lf,%lf\n", pkt->imu_angular_velocity_rpy[0], pkt->imu_angular_velocity_rpy[1], pkt->imu_angular_velocity_rpy[2]);
-
-#if !defined(USE_IMU_CALC)
-#if defined(SET_IMU_FROM_EULER)
-    // set from Euler
-    double qw = pkt->imu_orientation_quat[0];
-    double qx = pkt->imu_orientation_quat[1];
-    double qy = pkt->imu_orientation_quat[2];
-    double qz = pkt->imu_orientation_quat[3];
-    double ysqr = qy * qy;
-    double xf, yf, zf;
-
-    // roll (x-axis rotation)
-    double t0 = +2.0 * (qw * qx + qy * qz);
-    double t1 = +1.0 - 2.0 * (qx * qx + ysqr);
-    xf = atan2(t0, t1) * RAD2DEG;
-
-    // pitch (y-axis rotation)
-    double t2 = +2.0 * (qw * qy - qz * qx);
-    t2 = t2 > 1.0 ? 1.0 : t2;
-    t2 = t2 < -1.0 ? -1.0 : t2;
-    yf = asin(t2) * RAD2DEG; // from wiki
-
-    // yaw (z-axis rotation)
-    double t3 = +2.0 * (qw * qz + qx * qy);
-    double t4 = +1.0 - 2.0 * (ysqr + qz * qz);
-    zf = atan2(t3, t4) * RAD2DEG;
-    imuSetAttitudeRPY(xf, -yf, zf); // yes! pitch was inverted!!
-#else
-    imuSetAttitudeQuat(pkt->imu_orientation_quat[0], pkt->imu_orientation_quat[1], pkt->imu_orientation_quat[2], pkt->imu_orientation_quat[3]);
-#endif
-#endif
-
-#if defined(SIMULATOR_IMU_SYNC)
-    imuSetHasNewData(deltaSim*1e6);
-    imuUpdateAttitude(micros());
-#endif
-
-
-    if (deltaSim < 0.02 && deltaSim > 0) { // simulator should run faster than 50Hz
-//        simRate = simRate * 0.5 + (1e6 * deltaSim / (realtime_now - last_realtime)) * 0.5;
-        struct timespec out_ts;
-        //TODO: fix ?
-        //timeval_sub(&out_ts, &now_ts, &last_ts);
-        //simRate = deltaSim / (out_ts.tv_sec + 1e-9*out_ts.tv_nsec);
-    }
-//    printf("simRate = %lf, millis64 = %lu, millis64_real = %lu, deltaSim = %lf\n", simRate, millis64(), millis64_real(), deltaSim*1e6);
-
-    last_timestamp = pkt->timestamp;
-    last_realtime = micros64();
-
-    //TODO: fix ?
-    //last_ts.tv_sec = now_ts.tv_sec;
-    //last_ts.tv_nsec = now_ts.tv_nsec;
-
-    //pthread_mutex_unlock(&updateLock); // can send PWM output now
-
-#if defined(SIMULATOR_GYROPID_SYNC)
-    //pthread_mutex_unlock(&mainLoopLock); // can run main loop
-#endif
-}
-
-static void* udpThread(void* data)
-{
-    UNUSED(data);
-    int n = 0;
-
-    while (workerRunning) {
-      //TODO: fix?
-      /*
-        n = udpRecv(&stateLink, &fdmPkt, sizeof(fdm_packet), 100);
-        if (n == sizeof(fdm_packet)) {
-//            printf("[data]new fdm %d\n", n);
-            updateState(&fdmPkt);
-        }
-        */
-    }
-
-    printf("udpThread end!!\n");
-    return NULL;
-}
-
-static void* tcpThread(void* data)
-{
-    UNUSED(data);
-
-    dyad_init();
-    dyad_setTickInterval(0.2f);
-    dyad_setUpdateTimeout(0.5f);
-
-    while (workerRunning) {
-        dyad_update();
-    }
-
-    dyad_shutdown();
-    printf("tcpThread end!!\n");
-    return NULL;
-}
-
-// system
 /*
-void systemInit(void)
-{
-    int ret;
-
-    //TODO: fix ?
-    //clock_gettime(CLOCK_MONOTONIC, &start_time);
-    printf("[system]Init...\n");
-
-    SystemCoreClock = 500 * 1e6; // fake 500MHz
-
-    if (pthread_mutex_init(&updateLock, NULL) != 0) {
-        printf("Create updateLock error!\n");
-        exit(1);
-    }
-
-    if (pthread_mutex_init(&mainLoopLock, NULL) != 0) {
-        printf("Create mainLoopLock error!\n");
-        exit(1);
-    }
-
-    ret = pthread_create(&tcpWorker, NULL, tcpThread, NULL);
-    if (ret != 0) {
-        printf("Create tcpWorker error!\n");
-        exit(1);
-    }
-
-    ret = udpInit(&pwmLink, "127.0.0.1", 9002, false);
-    printf("init PwmOut UDP link...%d\n", ret);
-
-    ret = udpInit(&stateLink, NULL, 9003, true);
-    printf("start UDP server...%d\n", ret);
-
-    ret = pthread_create(&udpWorker, NULL, udpThread, NULL);
-    if (ret != 0) {
-        printf("Create udpWorker error!\n");
-        exit(1);
-    }
-
-}
-
-void systemReset(void)
-{
-    printf("[system]Reset!\n");
-    workerRunning = false;
-    pthread_join(tcpWorker, NULL);
-    pthread_join(udpWorker, NULL);
-    exit(0);
-}
-void systemResetToBootloader(bootloaderRequestType_e requestType)
-{
-    UNUSED(requestType);
-
-    printf("[system]ResetToBootloader!\n");
-    workerRunning = false;
-    pthread_join(tcpWorker, NULL);
-    pthread_join(udpWorker, NULL);
-    exit(0);
+char *strcasestr(const char *haystack, const char *needle) {
+    int nLen = strlen(needle);
+    do {
+        if (!strncasecmp(haystack, needle, nLen)) {
+            return (char *)haystack;
+        }
+        haystack++;
+    } while (*haystack);
+    return NULL;
 }
 */
 
@@ -419,7 +229,7 @@ pwmOutputPort_t motors[MAX_SUPPORTED_MOTORS];
 static pwmOutputPort_t servos[MAX_SUPPORTED_SERVOS];
 
 // real value to send
-static int16_t motorsPwm[MAX_SUPPORTED_MOTORS];
+int16_t motorsPwm[MAX_SUPPORTED_MOTORS];
 static int16_t servosPwm[MAX_SUPPORTED_SERVOS];
 static int16_t idlePulse;
 
@@ -462,7 +272,11 @@ static bool pwmEnableMotors(void)
 
 static void pwmWriteMotor(uint8_t index, float value)
 {
-    motorsPwm[index] = value - idlePulse;
+    if (index < MAX_SUPPORTED_MOTORS) {
+        motorsPwm[index] = value - idlePulse;
+    }
+
+    //TODO: write pwm values to a state packet that can be send back
 }
 
 static void pwmWriteMotorInt(uint8_t index, uint16_t value)
@@ -490,10 +304,10 @@ static void pwmCompleteMotorUpdate(void)
         outScale = 500.0;
     }
 
-    pwmPkt.motor_speed[3] = motorsPwm[0] / outScale;
-    pwmPkt.motor_speed[0] = motorsPwm[1] / outScale;
-    pwmPkt.motor_speed[1] = motorsPwm[2] / outScale;
-    pwmPkt.motor_speed[2] = motorsPwm[3] / outScale;
+    //pwmPkt.motor_speed[3] = motorsPwm[0] / outScale;
+    //pwmPkt.motor_speed[0] = motorsPwm[1] / outScale;
+    //pwmPkt.motor_speed[1] = motorsPwm[2] / outScale;
+    //pwmPkt.motor_speed[2] = motorsPwm[3] / outScale;
 
     // get one "fdm_packet" can only send one "servo_packet"!!
     //TODO: fix ?
@@ -505,6 +319,8 @@ static void pwmCompleteMotorUpdate(void)
 void pwmWriteServo(uint8_t index, float value)
 {
     servosPwm[index] = value;
+
+    //TODO: write pwm values to a state packet that can be send back
 }
 
 static motorDevice_t motorPwmDevice = {
@@ -528,10 +344,8 @@ motorDevice_t *motorPwmDevInit(const motorDevConfig_t *motorConfig, uint16_t _id
     UNUSED(motorConfig);
     UNUSED(useUnsyncedPwm);
 
-    if (motorCount > 4) {
-        return NULL;
-    }
 
+    printf("Initialized motor count %d\n", motorCount); 
     idlePulse = _idlePulse;
 
     for (int motorIndex = 0; motorIndex < MAX_SUPPORTED_MOTORS && motorIndex < motorCount; motorIndex++) {
@@ -560,35 +374,46 @@ static FILE *eepromFd = NULL;
 
 void FLASH_Unlock(void)
 {
-    if (eepromFd != NULL) {
-        fprintf(stderr, "[sim FLASH_Unlock] eepromFd != NULL\n");
+   if (eepromFd != NULL) {
+        fprintf(stderr, "[FLASH_Unlock] eepromFd != NULL\n");
         return;
     }
 
     // open or create
-    eepromFd = fopen(EEPROM_FILENAME,"r+");
+    eepromFd = fopen(EEPROM_FILENAME, "rb+");
     if (eepromFd != NULL) {
         // obtain file size:
-        fseek(eepromFd , 0 , SEEK_END);
+        fseek(eepromFd, 0, SEEK_END);
         size_t lSize = ftell(eepromFd);
         rewind(eepromFd);
 
         size_t n = fread(eepromData, 1, sizeof(eepromData), eepromFd);
         if (n == lSize) {
-            printf("[sim FLASH_Unlock] loaded '%s', size = %ld / %ld\n", EEPROM_FILENAME, lSize, sizeof(eepromData));
+            printf("[FLASH_Unlock] loaded '%s', size = %ld / %ld\n",
+                   EEPROM_FILENAME,
+                   lSize,
+                   sizeof(eepromData));
         } else {
-            fprintf(stderr, "[sim FLASH_Unlock] failed to load '%s'\n", EEPROM_FILENAME);
-            fprintf(stderr, "--> n = %ld, size = %ld / %ld\n", n, lSize, sizeof(eepromData));
+            fprintf(stderr,
+                    "[FLASH_Unlock] failed to load '%s, %ld < %ld'\n",
+                    EEPROM_FILENAME,
+                    n,
+                    lSize);
             return;
         }
     } else {
-        printf("[sim FLASH_Unlock] created '%s', size = %ld\n", EEPROM_FILENAME, sizeof(eepromData));
-        if ((eepromFd = fopen(EEPROM_FILENAME, "w+")) == NULL) {
-            fprintf(stderr, "[sim FLASH_Unlock] failed to create '%s'\n", EEPROM_FILENAME);
+        printf("[FLASH_Unlock] created '%s', size = %ld\n",
+               EEPROM_FILENAME,
+               sizeof(eepromData));
+        if ((eepromFd = fopen(EEPROM_FILENAME, "wb+")) == NULL) {
+            fprintf(stderr,
+                    "[FLASH_Unlock] failed to create '%s'\n",
+                    EEPROM_FILENAME);
             return;
         }
         if (fwrite(eepromData, sizeof(eepromData), 1, eepromFd) != 1) {
-            fprintf(stderr, "[sim FLASH_Unlock] write failed: %s\n", strerror(errno));
+            fprintf(
+              stderr, "[FLASH_Unlock] write failed: %s\n", strerror(errno));
         }
     }
 }
@@ -598,19 +423,19 @@ void FLASH_Lock(void)
     // flush & close
     if (eepromFd != NULL) {
         fseek(eepromFd, 0, SEEK_SET);
-        fwrite(eepromData, 1, sizeof(eepromData), eepromFd);
+        int wrote = fwrite(eepromData, 1, sizeof(eepromData), eepromFd);
         fclose(eepromFd);
         eepromFd = NULL;
-        printf("[sim FLASH_Lock] saved '%s'\n", EEPROM_FILENAME);
+        printf("[FLASH_Lock] saved '%s size: %d'\n", EEPROM_FILENAME, wrote);
     } else {
-        fprintf(stderr, "[sim FLASH_Lock] eeprom is not unlocked\n");
+        fprintf(stderr, "[FLASH_Lock] eeprom is not unlocked\n");
     }
 }
 
 FLASH_Status FLASH_ErasePage(uintptr_t Page_Address)
 {
     UNUSED(Page_Address);
-//    printf("[sim FLASH_ErasePage]%x\n", Page_Address);
+//    printf("[FLASH_ErasePage]%x\n", Page_Address);
     return FLASH_COMPLETE;
 }
 
@@ -618,9 +443,9 @@ FLASH_Status FLASH_ProgramWord(uintptr_t addr, uint32_t value)
 {
     if ((addr >= (uintptr_t)eepromData) && (addr < (uintptr_t)ARRAYEND(eepromData))) {
         *((uint32_t*)addr) = value;
-        //printf("[sim FLASH_ProgramWord]%p = %08x\n", (void*)addr, *((uint32_t*)addr));
+        //printf("[FLASH_ProgramWord]%p = %08x\n", (void*)addr, *((uint32_t*)addr));
     } else {
-            printf("[sim FLASH_ProgramWord]%p out of range!\n", (void*)addr);
+            printf("[FLASH_ProgramWord]%p out of range!\n", (void*)addr);
     }
     return FLASH_COMPLETE;
 }
@@ -632,10 +457,61 @@ void IOConfigGPIO(IO_t io, ioConfig_t cfg)
     printf("IOConfigGPIO\n");
 }
 
+bool IORead(IO_t io)
+{
+    if (!io) {
+        return false;
+    }
+    return (IO_GPIO(io)->IDR & IO_Pin(io));
+}
+
+void IOWrite(IO_t io, bool hi)
+{
+    if (!io) {
+        return;
+    }
+    IO_GPIO(io)->BSRR = IO_Pin(io) << (hi ? 0 : 16);
+}
+
+void IOHi(IO_t io)
+{
+    if (!io) {
+        return;
+    }
+    IO_GPIO(io)->BSRR = IO_Pin(io);
+}
+
+void IOLo(IO_t io)
+{
+    if (!io) {
+        return;
+    }
+    IO_GPIO(io)->BRR = IO_Pin(io);
+}
+
+void IOToggle(IO_t io)
+{
+    if (!io) {
+        return;
+    }
+
+    uint32_t mask = IO_Pin(io);
+    if (IO_GPIO(io)->ODR & mask) {
+        mask <<= 16; // bit is set, shift mask to reset half
+    }
+    IO_GPIO(io)->BSRR = mask;
+}
+
+
 void spektrumBind(rxConfig_t *rxConfig)
 {
     UNUSED(rxConfig);
     printf("spektrumBind\n");
+}
+
+void debugInit(void)
+{
+    printf("debugInit\n");
 }
 
 void unusedPinsInit(void)

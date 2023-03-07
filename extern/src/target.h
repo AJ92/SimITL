@@ -35,6 +35,17 @@
 
 //#define SIMULATOR_MULTITHREAD
 
+#define DEFAULT_CPU_OVERCLOCK 1
+#define DMA_RAM
+#define DMA_RW_AXI
+#define DMA_RAM_R
+#define DMA_RAM_W
+#define DMA_RAM_RW
+
+#define DMA_DATA_ZERO_INIT
+#define DMA_DATA
+#define STATIC_DMA_DATA_AUTO
+
 // use simulatior's attitude directly
 // disable this if wants to test AHRS algorithm
 #undef USE_IMU_CALC
@@ -92,16 +103,19 @@
 #define SERIAL_PORT_COUNT 8
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_MSP
-#define DEFAULT_FEATURES        (FEATURE_GPS | FEATURE_TELEMETRY)
+#define DEFAULT_FEATURES        (FEATURE_GPS | FEATURE_TELEMETRY | FEATURE_OSD)
 
 #define USE_PARAMETER_GROUPS
+
+//#define USE_MAX7456
+#define USE_PWM_OUTPUT
 
 #undef USE_STACK_CHECK // I think SITL don't need this
 #undef USE_DASHBOARD
 #undef USE_TELEMETRY_LTM
 #undef USE_ADC
 #undef USE_VCP
-//#undef USE_OSD
+#undef USE_OSD
 #undef USE_RX_PPM
 #undef USE_RX_PWM
 #undef USE_SERIALRX
@@ -114,7 +128,7 @@
 #undef USE_SERIALRX_SUMH
 #undef USE_SERIALRX_XBUS
 #undef USE_LED_STRIP
-#undef USE_PWM_OUTPUT
+//#undef USE_PWM_OUTPUT
 #undef USE_TELEMETRY_FRSKY_HUB
 #undef USE_TELEMETRY_HOTT
 #undef USE_TELEMETRY_SMARTPORT
@@ -139,6 +153,7 @@
 #undef USE_SERIAL_4WAY_SK_BOOTLOADER
 
 #define USE_GPS_RESCUE
+#define USE_CLI_DEBUG_PRINT
 
 // cli register dump ?
 #undef USE_GYRO_REGISTER_DUMP
@@ -154,6 +169,8 @@
 #define SOFTSERIAL_2_TIMER 3
 
 #define DEFIO_NO_PORTS   // suppress 'no pins defined' warning
+
+#define FLASH_PAGE_SIZE (0x400)
 
 // belows are internal stuff
 
@@ -234,6 +251,8 @@ typedef struct
 #define UART7 ((USART_TypeDef *)0x0007)
 #define UART8 ((USART_TypeDef *)0x0008)
 
+#define SIMULATOR_MAX_RC_CHANNELS   16
+#define SIMULATOR_MAX_PWM_CHANNELS  16
 
 typedef struct
 {
@@ -267,18 +286,6 @@ typedef enum
   FLASH_COMPLETE,
   FLASH_TIMEOUT
 } FLASH_Status;
-
-typedef struct {
-    double timestamp;                   // in seconds
-    double imu_angular_velocity_rpy[3]; // rad/s -> range: +/- 8192; +/- 2000 deg/se
-    double imu_linear_acceleration_xyz[3];    // m/s/s NED, body frame -> sim 1G = 9.80665, FC 1G = 256
-    double imu_orientation_quat[4];     //w, x, y, z
-    double velocity_xyz[3];             // m/s, earth frame
-    double position_xyz[3];             // meters, NED from origin
-} fdm_packet;
-typedef struct {
-    float motor_speed[4];   // normal: [0.0, 1.0], 3D: [-1.0, 1.0]
-} servo_packet;
 
 void FLASH_Unlock(void);
 void FLASH_Lock(void);

@@ -32,16 +32,25 @@ int main() {
     auto start = hr_clock::now();
     auto i = 0u;
     while (simulator.step()) {
-        if (i % 100 == 0) {
+        if (i % 10 == 0) {
             const auto elapsed_ms = hr_clock::now() - start;
             long long ms_i = to_us(elapsed_ms);
             long long delta = simulator.micros_passed - ms_i;
 
             clearline();
-            fmt::print("elapsed ms: {}, fake ms: {}, delta: {}",
+            fmt::print("elapsed ms: {}, fake ms: {}, dt: {}, rc: {} {} {} {} {} {} {} {}, arm_dis: {}",
                        ms_i,
                        simulator.micros_passed,
-                       delta);
+                       delta,
+                       simulator.rc_data[0],
+                       simulator.rc_data[1],
+                       simulator.rc_data[2],
+                       simulator.rc_data[3],
+                       simulator.rc_data[4],
+                       simulator.rc_data[5],
+                       simulator.rc_data[6],
+                       simulator.rc_data[7],
+                       simulator.armingDisabledFlags);
         }
 
         i++;

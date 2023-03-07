@@ -38,6 +38,20 @@ namespace bf {
     void EnableState(stateFlags_t mask) {
         stateFlags |= mask;
     }
+
+    static float readRCSim(const bf::rxRuntimeState_t *rxRuntimeState, uint8_t channel)
+    {
+        UNUSED(rxRuntimeState);
+        return Sim::getInstance().rc_data[channel];
+    }
+
+    static uint8_t rxRCFrameStatus(bf::rxRuntimeState_t *rxRuntimeState)
+    {
+        UNUSED(rxRuntimeState);
+        return bf::RX_FRAME_COMPLETE;
+    }
+
+    extern int16_t motorsPwm[MAX_SUPPORTED_MOTORS];
   }
 }  // namespace bf
 
@@ -334,14 +348,21 @@ vmath::vec3 Sim::calculate_physics(
     return acceleration;
 }
 
-
 void Sim::set_rc_data(float data[8]) {
   std::array<uint16_t, 8> rcData;
   for (int i = 0; i < 8; i++) {
     rcData[i] = uint16_t(1500 + data[i] * 500);
+    rc_data[i] = rcData[i];
   }
 
-  bf::rxMspFrameReceive(&rcData[0], 8);
+  //bf::rxMspFrameReceive(&rcData[0], 8);
+
+//hack to trick bf into using sim data...
+  bf::rxRuntimeState.channelCount = SIMULATOR_MAX_RC_CHANNELS;
+  bf::rxRuntimeState.rcReadRawFn = bf::readRCSim;
+  bf::rxRuntimeState.rcFrameStatusFn = bf::rxRCFrameStatus;
+
+  bf::rxRuntimeState.rxProvider = bf::RX_PROVIDER_UDP;
 }
 
 Sim::Sim()
@@ -361,6 +382,11 @@ Sim::~Sim() {
 }
 
 void Sim::connect() {
+  //reset rc data to valid data...
+  for(int i = 0; i < SIMULATOR_MAX_RC_CHANNELS; i++){
+    rc_data[i] = 1000U;
+  }
+
   fmt::print("Waiting for init packet\n");
 
   initPacket = receive<InitPacket>(recv_socket);
@@ -378,12 +404,19 @@ void Sim::connect() {
   fmt::print("Initializing betaflight\n");
   bf::init();
 
+  bf::rescheduleTask(bf::TASK_RX, 1);
+
   fmt::print("Done, sending response\n\n");
   //sending the same package back for verification...
   send_socket.send(reinterpret_cast<const std::byte*>(&initPacket), sizeof(InitPacket));
+
+//hack
+  //bf::unsetArmingDisabled(bf::armingDisableFlags_e::ARMING_DISABLED_BOOT_GRACE_TIME);
 }
 
 bool Sim::step() {
+  armingDisabledFlags = (int)bf::getArmingDisableFlags();
+
   auto state = receive<StatePacket>(recv_socket);
   if (state.type == PacketType::Error) {
     fmt::print("Error receiving packet\n");
