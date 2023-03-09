@@ -38,18 +38,14 @@ int main() {
             long long delta = simulator.micros_passed - ms_i;
 
             clearline();
-            fmt::print("elapsed ms: {}, fake ms: {}, dt: {}, rc: {} {} {} {} {} {} {} {}, arm_dis: {}",
+            fmt::print("elapsed ms: {}, fake ms: {}, dt: {}, rc: {} {} {} {}, arm_dis: {}",
                        ms_i,
                        simulator.micros_passed,
                        delta,
-                       simulator.rc_data[0],
-                       simulator.rc_data[1],
-                       simulator.rc_data[2],
-                       simulator.rc_data[3],
-                       simulator.rc_data[4],
-                       simulator.rc_data[5],
-                       simulator.rc_data[6],
-                       simulator.rc_data[7],
+                       simulator.motorsState[0].rpm,
+                       simulator.motorsState[1].rpm,
+                       simulator.motorsState[2].rpm,
+                       simulator.motorsState[3].rpm,
                        simulator.armingDisabledFlags);
         }
 

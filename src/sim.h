@@ -33,8 +33,6 @@ private:
   uint64_t last_osd_time = 0;
   vmath::vec3 acceleration = {0, 0, 0};
 
-  std::array<MotorState, 4> motorsState {};
-
   kissnet::udp_socket recv_socket;
   kissnet::udp_socket send_socket;
 
@@ -68,6 +66,8 @@ public:
   int64_t rx_state = 0;
 
   uint16_t rc_data[16] {};
+  std::array<MotorState, 4> motorsState {};
+
   int armingDisabledFlags = 0;
 
   static Sim& getInstance();

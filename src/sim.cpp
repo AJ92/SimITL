@@ -103,10 +103,6 @@ void Sim::set_gyro(const StatePacket& state,
     mat3 basis;
     copy(basis, state.rotation);
 
-    vec3 pos;
-    copy(pos, state.position);
-
-
     quat rotation = mat3_to_quat(basis);
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
@@ -119,7 +115,7 @@ void Sim::set_gyro(const StatePacket& state,
     if (bf::sensors(bf::SENSOR_ACC)) {
 #ifdef USE_QUAT_ORIENTATION
         bf::imuSetAttitudeQuat(
-          rotation[3], -rotation[2], rotation[0], -rotation[1]);
+          rotation[3], -rotation[2], -rotation[0], rotation[1]);
 #else
         x = int16_t(
           bf::constrain(int(-accelerometer[2] * ACC_SCALE), -32767, 32767));
@@ -134,9 +130,9 @@ void Sim::set_gyro(const StatePacket& state,
     x = int16_t(
       bf::constrain(int(-gyro[2] * GYRO_SCALE * RAD2DEG), -32767, 32767));
     y = int16_t(
-      bf::constrain(int(-gyro[0] * GYRO_SCALE * RAD2DEG), -32767, 32767));
+      bf::constrain(int(gyro[0] * GYRO_SCALE * RAD2DEG), -32767, 32767));
     z = int16_t(
-      bf::constrain(int(gyro[1] * GYRO_SCALE * RAD2DEG), -32767, 32767));
+      bf::constrain(int(-gyro[1] * GYRO_SCALE * RAD2DEG), -32767, 32767));
     bf::fakeGyroSet(bf::fakeGyroDev, x, y, z);
 
     const auto
@@ -149,6 +145,11 @@ void Sim::set_gyro(const StatePacket& state,
     int64_t millis = micros_passed / 1000;
 
     if (millis - last_millis > 100) {
+
+        vec3 pos;
+        copy(pos, state.position);
+
+
         bf::EnableState(bf::GPS_FIX);
         bf::gpsSol.numSat = 10;
         bf::gpsSol.llh.lat =
@@ -303,19 +304,11 @@ vmath::vec3 Sim::calculate_physics(
                       xform(rotation, vec3{0, motors[i].thrust, 0});
     }
 
-
-    //acc is nan, cause total force is nan
     acceleration = total_force / initPacket.quadMass;
 
     linearVelocity = linearVelocity + acceleration * dt;
     copy(state.linearVelocity, linearVelocity);
-
-    /*
-    fmt::print("linearVelocity x: {}, y: {}, z: {}\n",
-                       linearVelocity[0],
-                       linearVelocity[1],
-                       linearVelocity[2]);
-    */
+    
     assert(std::isfinite(length(linearVelocity)));
 
     // moment sum around origin:
