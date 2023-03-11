@@ -21,6 +21,7 @@ set(BETAFLIGHT_SOURCES
   common/printf_serial.c
   common/time.c
   common/typeconversion.c
+  common/encoding.c
   #common/string_light.c
 
   #pg/pg.c
@@ -128,6 +129,9 @@ set(BETAFLIGHT_SOURCES
 
   cli/cli.c
   cli/settings.c
+
+  blackbox/blackbox.c
+  blackbox/blackbox_encoding.c
 )
 
 list(TRANSFORM BETAFLIGHT_SOURCES PREPEND 

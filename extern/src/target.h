@@ -85,6 +85,7 @@
 #define USE_FAKE_BARO
 
 #define USE_GPS
+#define USE_BLACKBOX
 
 #define USABLE_TIMER_CHANNEL_COUNT 0
 
