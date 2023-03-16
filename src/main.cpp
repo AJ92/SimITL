@@ -6,18 +6,6 @@
 
 #include <chrono>
 
-using hr_clock = std::chrono::high_resolution_clock;
-
-template <typename R, typename P>
-auto to_us(std::chrono::duration<R, P> t) {
-    return std::chrono::duration_cast<std::chrono::microseconds>(t).count();
-}
-
-template <typename R, typename P>
-auto to_ms(std::chrono::duration<R, P> t) {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(t).count();
-}
-
 void clearline() {
     fmt::print(
       "\r                                                                    "
@@ -30,23 +18,35 @@ int main() {
     simulator.connect();
 
     auto start = hr_clock::now();
+    auto lastLog = start;
     auto i = 0u;
     while (simulator.step()) {
-        if (i % 10 == 0) {
-            const auto elapsed_ms = hr_clock::now() - start;
+        if (i % 200 == 0) {
+            const auto now = hr_clock::now();
+            const auto elapsed_ms = now - start;
             long long ms_i = to_us(elapsed_ms);
             long long delta = simulator.micros_passed - ms_i;
 
+            const auto dtLastLog = now - lastLog;
+            float factor = (float) to_ms(dtLastLog) / 1000.0f;
+
             clearline();
-            fmt::print("elapsed ms: {}, fake ms: {}, dt: {}, rc: {} {} {} {}, arm_dis: {}",
+            fmt::print("e.ms: {}, f.ms: {}, dt: {}, s/s: {}, sch/s: {}, rpm: {} {} {} {}, dis: {}          ",
                        ms_i,
                        simulator.micros_passed,
                        delta,
+                       factor * (float)simulator.simSteps -
+                       factor * (float)simulator.bfSchedules,
+                       factor * (float)simulator.bfSchedules,
                        simulator.motorsState[0].rpm,
                        simulator.motorsState[1].rpm,
                        simulator.motorsState[2].rpm,
                        simulator.motorsState[3].rpm,
                        simulator.armingDisabledFlags);
+
+            simulator.simSteps = 0;
+            simulator.bfSchedules = 0;
+            lastLog = now;
         }
 
         i++;

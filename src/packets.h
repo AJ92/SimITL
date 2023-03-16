@@ -39,6 +39,11 @@ struct Vec3F{
 struct InitPacket{
   PacketType type = PacketType::Init;
 
+  // initial time of visualization side (unity)
+  double timeVis = 0.0;
+  // initial time of simulation side (this)
+  double timeSim = 0.0;
+
   float motorKV = 0.0f;
   float motorR = 0.0f;
   float motorI0 = 0.0f;
@@ -63,12 +68,17 @@ struct InitPacket{
 struct StatePacket{
   PacketType type = PacketType::State;
 
+  double time = 0.0;
+
   float delta = 0.0f;
   Vec3F position {};
   Vec3F rotation[3] {};
 
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
+
+  float motorRpm[4] {};
+
   float rcData[8] {};
 
   // 1 true 0 false
@@ -81,15 +91,24 @@ struct StatePacket{
 struct StateUpdatePacket{
   PacketType type = PacketType::StateUpdate;
 
+  double time = 0.0;
+
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
+
+  float motorRpm[4] {};
 };
 
 struct StateOsdUpdatePacket{
   PacketType type = PacketType::StateOsdUpdate;
 
+  double time = 0.0;
+
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
+
+  float motorRpm[4] {};
+
   byte osd[16*30] {};
 };
 

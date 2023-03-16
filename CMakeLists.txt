@@ -55,6 +55,7 @@ target_link_libraries(libsim PUBLIC fmt-header-only)
 add_executable(SimFlight
   src/main.cpp $<TARGET_OBJECTS:libsim>
 )
+target_compile_features(SimFlight PUBLIC cxx_std_17)
 
 
 target_link_libraries(SimFlight PUBLIC 

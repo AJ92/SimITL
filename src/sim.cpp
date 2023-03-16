@@ -89,7 +89,7 @@ const static auto GYRO_SCALE = 16.4f;
 const static auto RAD2DEG = (180.0f / float(M_PI));
 const static auto ACC_SCALE = (256 / 9.80665f);
 
-const static auto OSD_UPDATE_TIME = 1e6 / 60;
+const static auto OSD_UPDATE_TIME = 1e6 / 20;
 
 const auto AIR_RHO = 1.225f;
 
@@ -208,8 +208,9 @@ float Sim::prop_torque(float rpm, float vel) {
 
 
 float Sim::calculate_motors(float dt,
-                                  const StatePacket& state,
-                                  std::array<MotorState, 4>& motors) {
+                            StatePacket& state,
+                            std::array<MotorState, 4>& motors) 
+{
     using namespace vmath;
 
     const float motor_dir[4] = {1.0, -1.0, -1.0, 1.0};
@@ -238,14 +239,20 @@ float Sim::calculate_motors(float dt,
         const auto ptorque = prop_torque(rpm, vel);
         const auto net_torque = torque - ptorque;
         const auto domega = net_torque / initPacket.propInertia;
-        const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
+        const auto drpm = (domega * dt) * /*60.0f*/ 500.0f / (2.0f * float(M_PI));
 
         const auto kv = initPacket.motorKV;
         const auto maxdrpm = fabsf(volts * initPacket.motorKV - rpm);
         rpm += clamp(drpm, -maxdrpm, maxdrpm);
 
+        //if disarmed reset rpm to 0
+        if((bf::armingFlags & (bf::ARMED)) == 0){
+          rpm = 0.0f;
+        }
+
         motors[i].thrust = prop_thrust(rpm, vel);
         motors[i].rpm = rpm;
+        state.motorRpm[i] = rpm;
         resPropTorque += motor_dir[i] * torque;
     }
 
@@ -374,6 +381,8 @@ Sim::~Sim() {
   dyad_shutdown();
 }
 
+std::chrono::system_clock::time_point start;
+
 void Sim::connect() {
   //reset rc data to valid data...
   for(int i = 0; i < SIMULATOR_MAX_RC_CHANNELS; i++){
@@ -399,12 +408,37 @@ void Sim::connect() {
 
   bf::rescheduleTask(bf::TASK_RX, 1);
 
-  fmt::print("Done, sending response\n\n");
+  //stateUpdateThread = std::thread(&Sim::state, this);
+
+  running = true;
+
+  start = hr_clock::now();
+  initPacket.timeSim = 0.0;
+
   //sending the same package back for verification...
   send_socket.send(reinterpret_cast<const std::byte*>(&initPacket), sizeof(InitPacket));
-
+  fmt::print("Done, sending response\n\n");
 //hack
   //bf::unsetArmingDisabled(bf::armingDisableFlags_e::ARMING_DISABLED_BOOT_GRACE_TIME);
+}
+
+void Sim::state(){
+  while(running){
+    auto state = receive<StatePacket>(recv_socket);
+    if (state.type == PacketType::Error) {
+      fmt::print("Error receiving packet\n");
+      continue;
+    }
+
+    if((state.commands & CommandType::Stop) == CommandType::Stop){
+      fmt::print("Stop command received\n");
+      running = false;
+      return;
+    }
+
+    std::lock_guard<std::mutex> guard(statePacketMutex);
+    statePacket = state;
+  }
 }
 
 bool Sim::step() {
@@ -446,7 +480,10 @@ bool Sim::step() {
       sleep_timer = std::max(int64_t(0), sleep_timer);
     } else {
       bf::scheduler();
+      bfSchedules++;
     }
+
+    simSteps++;
 
     if (state.crashed > 0) continue;
 
@@ -455,11 +492,21 @@ bool Sim::step() {
     acceleration = calculate_physics(dt, state, motorsState, motorsTorque);
   }
 
+  const auto diff = hr_clock::now() - start;
+  double diffd = ((double) to_us(diff)) / 1000000.0;
+
   if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
     last_osd_time = micros_passed;
     StateOsdUpdatePacket update;
+
+    update.time = diffd;
+
     update.angularVelocity = state.angularVelocity;
     update.linearVelocity = state.linearVelocity;
+    update.motorRpm[0] = state.motorRpm[0];
+    update.motorRpm[1] = state.motorRpm[1];
+    update.motorRpm[2] = state.motorRpm[2];
+    update.motorRpm[3] = state.motorRpm[3];
     for (int y = 0; y < VIDEO_LINES; y++) {
       for (int x = 0; x < CHARS_PER_LINE; x++) {
         update.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
@@ -468,8 +515,15 @@ bool Sim::step() {
     send_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateOsdUpdatePacket));
   } else {
     StateUpdatePacket update;
+
+    update.time = diffd;
+
     update.angularVelocity = state.angularVelocity;
     update.linearVelocity = state.linearVelocity;
+    update.motorRpm[0] = state.motorRpm[0];
+    update.motorRpm[1] = state.motorRpm[1];
+    update.motorRpm[2] = state.motorRpm[2];
+    update.motorRpm[3] = state.motorRpm[3];
     send_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
   }
 
