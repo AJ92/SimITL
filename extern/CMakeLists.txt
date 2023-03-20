@@ -57,7 +57,7 @@ set(BETAFLIGHT_SOURCES
   drivers/io.c
   drivers/display.c
   drivers/light_led.c
-  drivers/max7456.c
+  #drivers/max7456.c
   drivers/pwm_esc_detect.c
   drivers/rx/rx_pwm.c
   drivers/mco.c
@@ -66,6 +66,8 @@ set(BETAFLIGHT_SOURCES
   drivers/sound_beeper.c
   drivers/bus_i2c_busdev.c
   drivers/bus_i2c_soft.c
+  drivers/vtx_common.c
+  drivers/vtx_table.c
 
 
   fc/init.c
@@ -121,7 +123,32 @@ set(BETAFLIGHT_SOURCES
   io/rcdevice_cam.c
   io/rcdevice.c
   io/gps.c
-  io/displayport_max7456.c
+  #io/displayport_max7456.c
+  io/displayport_msp.c
+
+  cms/cms.c
+  cms/cms_menu_blackbox.c
+  cms/cms_menu_failsafe.c
+  cms/cms_menu_firmware.c
+  cms/cms_menu_gps_rescue.c
+  cms/cms_menu_imu.c
+  cms/cms_menu_ledstrip.c
+  cms/cms_menu_main.c
+  cms/cms_menu_misc.c
+  cms/cms_menu_osd.c
+  cms/cms_menu_persistent_stats.c
+  cms/cms_menu_power.c
+  cms/cms_menu_saveexit.c
+  cms/cms_menu_vtx_common.c
+  cms/cms_menu_vtx_msp.c
+  cms/cms_menu_vtx_rtc6705.c
+  cms/cms_menu_vtx_smartaudio.c
+  cms/cms_menu_vtx_tramp.c
+
+
+  osd/osd.c
+  osd/osd_elements.c
+  osd/osd_warnings.c
 
   msp/msp.c
   msp/msp_box.c

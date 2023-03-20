@@ -57,7 +57,6 @@ add_executable(SimFlight
 )
 target_compile_features(SimFlight PUBLIC cxx_std_17)
 
-
 target_link_libraries(SimFlight PUBLIC 
   libsim
   #-lpthread

@@ -6,6 +6,7 @@
 #include "displayport_fake.h"
 #include "drivers/display.h"
 #include "common/utils.h"
+#include "pg/vcd.h"
 
 uint8_t osdScreen[VIDEO_LINES][CHARS_PER_LINE];
 
@@ -49,14 +50,13 @@ static int writeSys (displayPort_t *displayPort, uint8_t x, uint8_t y, displayPo
   return 0;
 }
 
-static int writeString(displayPort_t *displayPort, uint8_t x, uint8_t y,
-                       const char *s) {
+static int writeString(displayPort_t *displayPort, uint8_t x, uint8_t y, uint8_t attr, const char *s) {
     UNUSED(displayPort);
-    // printf("%d, %d: %s\n", x, y, s);
+    //printf("%d, %d: %s\n", x, y, s);
     if (y < VIDEO_LINES) {
         for (int i = 0; s[i] && x + i < CHARS_PER_LINE; i++) {
             osdBackBuffer[y][x + i] = s[i];
-            // printf("%d, %d: %d\n", x, y, s[i]);
+            //printf("%d, %d: %d\n", x, y, s[i]);
         }
     }
     return 0;
@@ -151,7 +151,11 @@ static const displayPortVTable_t fakeDispVTable = {
 };
 
 struct vcdProfile_s;
-displayPort_t *max7456DisplayPortInit(const struct vcdProfile_s *vcdProfile) {
+
+
+//displayPort_t *max7456DisplayPortInit(const struct vcdProfile_s *vcdProfile) {
+
+bool max7456DisplayPortInit(const vcdProfile_t *vcdProfile, displayPort_t **displayPort) {
     UNUSED(vcdProfile);
 
     printf("display init\n");
@@ -159,5 +163,14 @@ displayPort_t *max7456DisplayPortInit(const struct vcdProfile_s *vcdProfile) {
 
     resync(&fakeDisplayPort);
 
-    return &fakeDisplayPort;
+    *displayPort = &fakeDisplayPort;
+
+    return true;
+    //return &fakeDisplayPort;
+}
+
+
+int spiDeviceByInstance(void *instance)
+{
+    return 0;
 }

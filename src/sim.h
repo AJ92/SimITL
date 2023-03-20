@@ -48,6 +48,8 @@ private:
   // state update from rendering side
   StatePacket statePacket = {};
   std::mutex statePacketMutex;
+  StatePacket statePacketUpdate = {};
+  std::mutex statePacketUpdateMutex;
 
   uint64_t total_delta = 0;
 
@@ -57,8 +59,7 @@ private:
   kissnet::udp_socket recv_socket;
   kissnet::udp_socket send_socket;
 
-  std::thread stateUpdateThread;
-  bool running = false;
+  std::thread stateUdpThread;
 
   static void update_rotation(float dt, StatePacket& state);
 
@@ -90,6 +91,7 @@ public:
   int64_t simSteps = 0;
   int64_t bfSchedules = 0;
 
+  bool running = false;
 
   uint16_t rc_data[16] {};
   std::array<MotorState, 4> motorsState {};
@@ -102,8 +104,8 @@ public:
 
   // initialize
   void connect();
-  // state input thread
-  void state();
+  // udp update thread
+  bool udpUpdate();
   // sim update step
   bool step();
 };

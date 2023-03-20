@@ -7,3 +7,6 @@
 [submodule "extern/fmt"]
 	path = extern/fmt
 	url = https://github.com/fmtlib/fmt.git
+[submodule "extern/mingw-std-threads"]
+	path = extern/mingw-std-threads
+	url = git@github.com:meganz/mingw-std-threads.git

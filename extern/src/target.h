@@ -108,7 +108,7 @@
 
 #define USE_PARAMETER_GROUPS
 
-//#define USE_MAX7456
+#define USE_MAX7456
 #define USE_PWM_OUTPUT
 
 #undef USE_STACK_CHECK // I think SITL don't need this
@@ -116,7 +116,12 @@
 #undef USE_TELEMETRY_LTM
 #undef USE_ADC
 #undef USE_VCP
-#undef USE_OSD
+// #undef USE_OSD
+#define USE_OSD
+#define USE_CMS
+#define USE_MSP_DISPLAYPORT
+#define USE_OSD_OVER_MSP_DISPLAYPORT
+
 #undef USE_RX_PPM
 #undef USE_RX_PWM
 #undef USE_SERIALRX

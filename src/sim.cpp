@@ -239,7 +239,7 @@ float Sim::calculate_motors(float dt,
         const auto ptorque = prop_torque(rpm, vel);
         const auto net_torque = torque - ptorque;
         const auto domega = net_torque / initPacket.propInertia;
-        const auto drpm = (domega * dt) * /*60.0f*/ 500.0f / (2.0f * float(M_PI));
+        const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
 
         const auto kv = initPacket.motorKV;
         const auto maxdrpm = fabsf(volts * initPacket.motorKV - rpm);
@@ -383,6 +383,22 @@ Sim::~Sim() {
 
 std::chrono::system_clock::time_point start;
 
+void updUpdateThread(Sim * sim){
+  auto lastUpdate = hr_clock::now();
+  while(sim->udpUpdate()){
+    
+    const auto updateDone = hr_clock::now();
+    const auto diff = updateDone - lastUpdate;
+    int diffus = (int) to_us(diff);
+
+    int stepus = 2 * 1000 * 1000;
+
+    //if(diffus < stepus)
+    //std::this_thread::sleep_for(std::chrono::nanoseconds(stepus - diffus));
+  }
+  sim->running = false;
+}
+
 void Sim::connect() {
   //reset rc data to valid data...
   for(int i = 0; i < SIMULATOR_MAX_RC_CHANNELS; i++){
@@ -408,8 +424,6 @@ void Sim::connect() {
 
   bf::rescheduleTask(bf::TASK_RX, 1);
 
-  //stateUpdateThread = std::thread(&Sim::state, this);
-
   running = true;
 
   start = hr_clock::now();
@@ -418,78 +432,25 @@ void Sim::connect() {
   //sending the same package back for verification...
   send_socket.send(reinterpret_cast<const std::byte*>(&initPacket), sizeof(InitPacket));
   fmt::print("Done, sending response\n\n");
-//hack
-  //bf::unsetArmingDisabled(bf::armingDisableFlags_e::ARMING_DISABLED_BOOT_GRACE_TIME);
-}
 
-void Sim::state(){
-  while(running){
-    auto state = receive<StatePacket>(recv_socket);
-    if (state.type == PacketType::Error) {
-      fmt::print("Error receiving packet\n");
-      continue;
-    }
-
-    if((state.commands & CommandType::Stop) == CommandType::Stop){
-      fmt::print("Stop command received\n");
-      running = false;
-      return;
-    }
-
-    std::lock_guard<std::mutex> guard(statePacketMutex);
-    statePacket = state;
-  }
-}
-
-bool Sim::step() {
-  armingDisabledFlags = (int)bf::getArmingDisableFlags();
-
+  // receive first state in sync to init the state
   auto state = receive<StatePacket>(recv_socket);
   if (state.type == PacketType::Error) {
-    fmt::print("Error receiving packet\n");
-    return true;
+    fmt::print("Error receiving initial state\n");
+    return;
   }
+  statePacket = state;
 
-  if((state.commands & CommandType::Stop) == CommandType::Stop){
-    fmt::print("Stop command received\n");
-    return false;
-  }
+  fmt::print("Starting udp update thread\n");
+  //stateUdpThread = std::thread(&Sim::udpUpdate, this);
+  stateUdpThread = std::thread(updUpdateThread, this);
+}
 
-  const auto deltaMicros = int(state.delta * 1e6);
-  total_delta += deltaMicros;
-
-  // const auto last = hr_clock::now();
-
-  dyad_update();
-
-  // auto dyad_time = hr_clock::now() - last;
-  // long long dyad_time_i = to_us(dyad_time);
-
-  // update rc at 100Hz, otherwise rx loss gets reported:
-  set_rc_data(state.rcData);
-
-  for (auto k = 0u; total_delta - DELTA >= 0; k++) {
-    total_delta -= DELTA;
-    micros_passed += DELTA;
-    const float dt = DELTA / 1e6f;
-
-    set_gyro(state, acceleration);
-
-    if (sleep_timer > 0) {
-      sleep_timer -= DELTA;
-      sleep_timer = std::max(int64_t(0), sleep_timer);
-    } else {
-      bf::scheduler();
-      bfSchedules++;
-    }
-
-    simSteps++;
-
-    if (state.crashed > 0) continue;
-
-    float motorsTorque = calculate_motors(dt, state, motorsState);
-
-    acceleration = calculate_physics(dt, state, motorsState, motorsTorque);
+bool Sim::udpUpdate(){
+  StatePacket tempState;
+  {
+    std::lock_guard<std::mutex> guard(statePacketMutex);
+    tempState = statePacket;
   }
 
   const auto diff = hr_clock::now() - start;
@@ -501,14 +462,15 @@ bool Sim::step() {
 
     update.time = diffd;
 
-    update.angularVelocity = state.angularVelocity;
-    update.linearVelocity = state.linearVelocity;
-    update.motorRpm[0] = state.motorRpm[0];
-    update.motorRpm[1] = state.motorRpm[1];
-    update.motorRpm[2] = state.motorRpm[2];
-    update.motorRpm[3] = state.motorRpm[3];
+    update.angularVelocity = tempState.angularVelocity;
+    update.linearVelocity = tempState.linearVelocity;
+    update.motorRpm[0] = tempState.motorRpm[0];
+    update.motorRpm[1] = tempState.motorRpm[1];
+    update.motorRpm[2] = tempState.motorRpm[2];
+    update.motorRpm[3] = tempState.motorRpm[3];
     for (int y = 0; y < VIDEO_LINES; y++) {
       for (int x = 0; x < CHARS_PER_LINE; x++) {
+        //TODO: access to osdScreen has to be guarded
         update.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
       }
     }
@@ -518,14 +480,89 @@ bool Sim::step() {
 
     update.time = diffd;
 
-    update.angularVelocity = state.angularVelocity;
-    update.linearVelocity = state.linearVelocity;
-    update.motorRpm[0] = state.motorRpm[0];
-    update.motorRpm[1] = state.motorRpm[1];
-    update.motorRpm[2] = state.motorRpm[2];
-    update.motorRpm[3] = state.motorRpm[3];
+    update.angularVelocity = tempState.angularVelocity;
+    update.linearVelocity = tempState.linearVelocity;
+    update.motorRpm[0] = tempState.motorRpm[0];
+    update.motorRpm[1] = tempState.motorRpm[1];
+    update.motorRpm[2] = tempState.motorRpm[2];
+    update.motorRpm[3] = tempState.motorRpm[3];
     send_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
   }
+
+  
+  auto state = receive<StatePacket>(recv_socket);
+  if (state.type == PacketType::Error) {
+    fmt::print("Error receiving packet\n");
+    return true;
+  }
+
+  if((state.commands & CommandType::Stop) == CommandType::Stop){
+    fmt::print("Stop command received\n");
+    running = false;
+    false;
+  }
+
+  std::lock_guard<std::mutex> guard(statePacketMutex);
+  statePacketUpdate = state;
+  return true;
+}
+
+bool Sim::step() {
+  armingDisabledFlags = (int)bf::getArmingDisableFlags();
+
+  std::this_thread::sleep_for(std::chrono::milliseconds(1));
+
+  const auto diff = hr_clock::now() - start;
+  double diffUS = to_us(diff);
+
+  const auto deltaMicros = 20000;//diffUS;//int(state.delta * 1e6);
+  total_delta += deltaMicros;
+
+  // const auto last = hr_clock::now();
+
+  
+
+  // auto dyad_time = hr_clock::now() - last;
+  // long long dyad_time_i = to_us(dyad_time);
+
+  dyad_update();
+
+  std::lock_guard<std::mutex> guard(statePacketMutex);
+
+  // update state
+  statePacket.linearVelocity = statePacketUpdate.linearVelocity;
+  statePacket.angularVelocity = statePacketUpdate.angularVelocity;
+  memcpy( statePacket.rcData, statePacketUpdate.rcData, 8 * sizeof(float) );
+  memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
+
+  // update rc at 100Hz, otherwise rx loss gets reported:
+  set_rc_data(statePacket.rcData);
+
+  for (auto k = 0u; total_delta - DELTA >= 0; k++) {
+    total_delta -= DELTA;
+    micros_passed += DELTA;
+    const float dt = DELTA / 1e6f;
+
+    set_gyro(statePacket, acceleration);
+
+    if (sleep_timer > 0) {
+      sleep_timer -= DELTA;
+      sleep_timer = std::max(int64_t(0), sleep_timer);
+    } else {
+      bf::scheduler();
+      bfSchedules++;
+    }
+
+    simSteps++;
+
+    if (statePacket.crashed > 0) continue;
+
+    float motorsTorque = calculate_motors(dt, statePacket, motorsState);
+
+    acceleration = calculate_physics(dt, statePacket, motorsState, motorsTorque);
+  }
+
+  // state update was here
 
   return true;
 }
