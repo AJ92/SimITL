@@ -45,43 +45,57 @@ private:
   // initial quad/physics params
   InitPacket initPacket = {};
 
-  // state update from rendering side
+  // current internal state
   StatePacket statePacket = {};
   std::mutex statePacketMutex;
+  // state update from rendering side
   StatePacket statePacketUpdate = {};
-  std::mutex statePacketUpdateMutex;
+  bool newStateReceived = false;
+
+  std::mutex rcMutex;
+  uint16_t rc_data[16] {};
+  uint32_t rcDataReceptionTimeUs;
 
   uint64_t total_delta = 0;
 
   uint64_t last_osd_time = 0;
   vmath::vec3 acceleration = {0, 0, 0};
 
-  kissnet::udp_socket recv_socket;
-  kissnet::udp_socket send_socket;
+  //current battery voltage
+  float batVoltage    = 0.0f; // in V
+  float batVoltageSag = 0.0f; // in V but saged
+  float batCapacity   = 0.0f; // in mAh
 
-  std::thread stateUdpThread;
+  kissnet::udp_socket recv_state_socket;
+  kissnet::udp_socket recv_rcdat_socket;
+  kissnet::udp_socket send_state_socket;
 
-  static void update_rotation(float dt, StatePacket& state);
+  std::thread stateUdpThread{};
+  std::thread rcUdpThread{};
+
+  static void update_rotation(double dt, StatePacket& state);
 
   float motor_torque(float volts, float rpm);
   float prop_thrust(float rpm, float vel);
   float prop_torque(float rpm, float vel);
+
+  void updateBat(double dt);
 
   // protected for testing
 protected:
 
   void set_gyro(const StatePacket& state, const vmath::vec3& acceleration);
 
-  float calculate_motors(float dt,
+  float calculate_motors(double dt,
                          StatePacket& state,
                          std::array<MotorState, 4>& motors);
 
-  vmath::vec3 calculate_physics(float dt,
+  vmath::vec3 calculate_physics(double dt,
                                 StatePacket& state,
                                 const std::array<MotorState, 4>& motors,
                                 float motorsTorque);
 
-  void set_rc_data(float data[8]);
+  void set_rc_data(float data[8], uint32_t timeUs);
 
   Sim();
 
@@ -90,10 +104,11 @@ public:
   int64_t sleep_timer = 0;
   int64_t simSteps = 0;
   int64_t bfSchedules = 0;
+  int64_t avgStepTime = 100;
 
   bool running = false;
+  bool stopped = false;
 
-  uint16_t rc_data[16] {};
   std::array<MotorState, 4> motorsState {};
 
   int armingDisabledFlags = 0;
@@ -103,11 +118,18 @@ public:
   ~Sim();
 
   // initialize
-  void connect();
+  bool connect();
   // udp update thread
-  bool udpUpdate();
+  bool udpStateUpdate();
+  // udp rc thread
+  bool udpRcUpdate();
   // sim update step
   bool step();
+  //stop threads
+  void stop();
+
+  float getRcData(uint8_t channel);
+  uint32_t getRcDataTimeUs();
 };
 
 #endif

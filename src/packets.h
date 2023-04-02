@@ -17,9 +17,10 @@ enum PacketType : int32_t {
   State           = 2U,
   StateUpdate     = 3U,
   StateOsdUpdate  = 4U,
+  Rc              = 5U,
 
   //count of types
-  Count           = 5U
+  Count           = 6U
 };
 
 enum CommandType : int32_t {
@@ -39,11 +40,6 @@ struct Vec3F{
 struct InitPacket{
   PacketType type = PacketType::Init;
 
-  // initial time of visualization side (unity)
-  double timeVis = 0.0;
-  // initial time of simulation side (this)
-  double timeSim = 0.0;
-
   float motorKV = 0.0f;
   float motorR = 0.0f;
   float motorI0 = 0.0f;
@@ -59,16 +55,14 @@ struct InitPacket{
 
   float quadMass = 0.0f;
   Vec3F quadInvInertia {};
-  float quadVbat = 0.0f;
+  float quadBatVoltage = 0.0f;
+  uint8_t quadBatCellCount = 1;
+  float quadBatCapacity = 0.0f;
   Vec3F quadMotorPos[4] {};
 };
 
-
-
 struct StatePacket{
   PacketType type = PacketType::State;
-
-  double time = 0.0;
 
   float delta = 0.0f;
   Vec3F position {};
@@ -79,7 +73,7 @@ struct StatePacket{
 
   float motorRpm[4] {};
 
-  float rcData[8] {};
+  float vbat = 0.0f;
 
   // 1 true 0 false
   byte crashed = 0;
@@ -91,8 +85,6 @@ struct StatePacket{
 struct StateUpdatePacket{
   PacketType type = PacketType::StateUpdate;
 
-  double time = 0.0;
-
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
 
@@ -102,14 +94,20 @@ struct StateUpdatePacket{
 struct StateOsdUpdatePacket{
   PacketType type = PacketType::StateOsdUpdate;
 
-  double time = 0.0;
-
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
 
   float motorRpm[4] {};
 
   byte osd[16*30] {};
+};
+
+// rc data needs own refresh rate and is seperate
+struct StateRcUpdatePacket{
+  PacketType type = PacketType::Rc;
+
+  float delta = 0.0f;
+  float rcData[8] {};
 };
 
 // copies data to the type struct...

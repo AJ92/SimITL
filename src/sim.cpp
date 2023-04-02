@@ -32,6 +32,7 @@ namespace bf {
     #include "io/gps.h"
 
     #include "src/target.h"
+    #include "sensors/battery_fake.h"
 
     #undef ENABLE_STATE
 
@@ -42,7 +43,12 @@ namespace bf {
     static float readRCSim(const bf::rxRuntimeState_t *rxRuntimeState, uint8_t channel)
     {
         UNUSED(rxRuntimeState);
-        return Sim::getInstance().rc_data[channel];
+        return Sim::getInstance().getRcData(channel);
+    }
+
+    static uint32_t rcFrameTimeUs(void)
+    {
+      return Sim::getInstance().getRcDataTimeUs();
     }
 
     static uint8_t rxRCFrameStatus(bf::rxRuntimeState_t *rxRuntimeState)
@@ -89,12 +95,12 @@ const static auto GYRO_SCALE = 16.4f;
 const static auto RAD2DEG = (180.0f / float(M_PI));
 const static auto ACC_SCALE = (256 / 9.80665f);
 
-const static auto OSD_UPDATE_TIME = 1e6 / 20;
+const static auto OSD_UPDATE_TIME = 1e6 / 30;
 
 const auto AIR_RHO = 1.225f;
 
 // 20kHz scheduler, is enough to run PID at 8khz
-const auto FREQUENCY = 20e3;
+const auto FREQUENCY = 20e3;//40e3;
 const auto DELTA = 1e6 / FREQUENCY;
 
 void Sim::set_gyro(const StatePacket& state,
@@ -207,7 +213,7 @@ float Sim::prop_torque(float rpm, float vel) {
 }
 
 
-float Sim::calculate_motors(float dt,
+float Sim::calculate_motors(double dt,
                             StatePacket& state,
                             std::array<MotorState, 4>& motors) 
 {
@@ -230,7 +236,7 @@ float Sim::calculate_motors(float dt,
         auto rpm = motors[i].rpm;
 
         //prevent division by 0
-        float vbat = std::max(1.0f, initPacket.quadVbat);
+        float vbat = std::max(1.0f, batVoltageSag);
 
         const auto volts =
           bf::motorsPwm[i] / 1000.0f * vbat;
@@ -259,7 +265,39 @@ float Sim::calculate_motors(float dt,
     return resPropTorque;
 }
 
-void Sim::update_rotation(float dt, StatePacket& state) {
+void Sim::updateBat(double dt) {
+  if(batVoltage > (3.5f * initPacket.quadBatCellCount)){
+    batVoltage = initPacket.quadBatVoltage - 
+      ((0.7 * initPacket.quadBatCellCount) * 
+      (1.0 - (batCapacity / initPacket.quadBatCapacity)));
+  }
+  else{
+    batVoltage -= 0.5f * dt;
+  }
+
+  batVoltage = std::max(batVoltage, 0.0f);
+
+  bf::setCellCount(initPacket.quadBatCellCount);
+  bf::voltageMeter_t* vMeter = bf::getVoltageMeter();
+
+  float rpmSum = 0.0f;
+  for(int i = 0; i < 4; i++){
+    rpmSum += motorsState[i].rpm;
+  }
+  
+  float vSag = 0.3 * (rpmSum / initPacket.propMaxRpm);
+
+  batVoltageSag = batVoltage - vSag;
+
+  vMeter->unfiltered      = batVoltageSag * 1e2;
+  vMeter->displayFiltered = batVoltageSag * 1e2;
+  vMeter->sagFiltered     = batVoltage    * 1e2;
+
+  batCapacity -= (rpmSum / initPacket.propMaxRpm) * 800.0f * (1.0f / batCapacity) * dt;
+  batCapacity = std::max(batCapacity, 0.0f);
+}
+
+void Sim::update_rotation(double dt, StatePacket& state) {
     using namespace vmath;
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
@@ -274,7 +312,7 @@ void Sim::update_rotation(float dt, StatePacket& state) {
 }
 
 vmath::vec3 Sim::calculate_physics(
-  float dt,
+  double dt,
   StatePacket& state,
   const std::array<MotorState, 4>& motors,
   float motorsTorque
@@ -302,7 +340,8 @@ vmath::vec3 Sim::calculate_physics(
     copy(frameDragArea, initPacket.frameDragArea);
     float area = dot(frameDragArea, abs(local_dir));
 
-    total_force = total_force - dir * 0.5 * AIR_RHO * vel2 *
+    // 0.85 was 0.5, but 85 feels more like a 3"
+    total_force = total_force - dir * 1.0f * AIR_RHO * vel2 *
                                   initPacket.frameDragConstant * area;
 
     // motors:
@@ -348,28 +387,30 @@ vmath::vec3 Sim::calculate_physics(
     return acceleration;
 }
 
-void Sim::set_rc_data(float data[8]) {
+void Sim::set_rc_data(float data[8], uint32_t timeUs) {
   std::array<uint16_t, 8> rcData;
   for (int i = 0; i < 8; i++) {
     rcData[i] = uint16_t(1500 + data[i] * 500);
     rc_data[i] = rcData[i];
   }
-
+  rcDataReceptionTimeUs = timeUs;
   //bf::rxMspFrameReceive(&rcData[0], 8);
-
-//hack to trick bf into using sim data...
-  bf::rxRuntimeState.channelCount = SIMULATOR_MAX_RC_CHANNELS;
-  bf::rxRuntimeState.rcReadRawFn = bf::readRCSim;
-  bf::rxRuntimeState.rcFrameStatusFn = bf::rxRCFrameStatus;
-
-  bf::rxRuntimeState.rxProvider = bf::RX_PROVIDER_UDP;
+  //hack to trick bf into using sim data...
+  bf::rxRuntimeState.channelCount     = SIMULATOR_MAX_RC_CHANNELS;
+  bf::rxRuntimeState.rcReadRawFn      = bf::readRCSim;
+  bf::rxRuntimeState.rcFrameStatusFn  = bf::rxRCFrameStatus;
+  bf::rxRuntimeState.rxProvider       = bf::RX_PROVIDER_UDP;
+  bf::rxRuntimeState.rcFrameTimeUsFn  = bf::rcFrameTimeUs;
+  bf::rxRuntimeState.lastRcFrameTimeUs = timeUs;
 }
 
 Sim::Sim()
-  : recv_socket(kissnet::endpoint("localhost", 7777))
-  , send_socket(kissnet::endpoint("localhost", 6666)) 
+  : recv_state_socket(kissnet::endpoint("localhost", 7777))
+  , recv_rcdat_socket(kissnet::endpoint("localhost", 7778))
+  , send_state_socket(kissnet::endpoint("localhost", 6666)) 
 {
-  recv_socket.bind();
+  recv_state_socket.bind();
+  recv_rcdat_socket.bind();
 }
 
 Sim& Sim::getInstance() {
@@ -383,31 +424,49 @@ Sim::~Sim() {
 
 std::chrono::system_clock::time_point start;
 
-void updUpdateThread(Sim * sim){
+void updStateUpdateThread(Sim * sim){
   auto lastUpdate = hr_clock::now();
-  while(sim->udpUpdate()){
+  while(sim->udpStateUpdate() && sim->running){
     
     const auto updateDone = hr_clock::now();
     const auto diff = updateDone - lastUpdate;
     int diffus = (int) to_us(diff);
-
-    int stepus = 2 * 1000 * 1000;
-
-    //if(diffus < stepus)
-    //std::this_thread::sleep_for(std::chrono::nanoseconds(stepus - diffus));
   }
-  sim->running = false;
 }
 
-void Sim::connect() {
+void updRcUpdateThread(Sim * sim){
+  auto lastUpdate = hr_clock::now();
+  while(sim->udpRcUpdate() && sim->running){
+    
+    const auto updateDone = hr_clock::now();
+    const auto diff = updateDone - lastUpdate;
+    int diffus = (int) to_us(diff);
+  }
+}
+
+bool Sim::connect() {
   //reset rc data to valid data...
   for(int i = 0; i < SIMULATOR_MAX_RC_CHANNELS; i++){
     rc_data[i] = 1000U;
   }
 
+  running = true;
   fmt::print("Waiting for init packet\n");
 
-  initPacket = receive<InitPacket>(recv_socket);
+  bool receivedInitPackage = false;
+  while(!receivedInitPackage){
+    initPacket = receive<InitPacket>(recv_state_socket);
+    if (initPacket.type == PacketType::Error) {
+      fmt::print("Error receiving init packet\n");
+    }
+    else{
+      receivedInitPackage = true;
+    }
+  }
+
+  batVoltage = initPacket.quadBatVoltage;
+  batVoltageSag = batVoltage;
+  batCapacity = initPacket.quadBatCapacity;
 
   for (auto i = 0u; i < 4; i++) {
     motorsState[i].position[0] = initPacket.quadMotorPos[i].x;
@@ -422,45 +481,46 @@ void Sim::connect() {
   fmt::print("Initializing betaflight\n");
   bf::init();
 
-  bf::rescheduleTask(bf::TASK_RX, 1);
-
-  running = true;
+  //bf::rescheduleTask(bf::TASK_RX, 1);
 
   start = hr_clock::now();
-  initPacket.timeSim = 0.0;
 
   //sending the same package back for verification...
-  send_socket.send(reinterpret_cast<const std::byte*>(&initPacket), sizeof(InitPacket));
+  send_state_socket.send(reinterpret_cast<const std::byte*>(&initPacket), sizeof(InitPacket));
   fmt::print("Done, sending response\n\n");
 
   // receive first state in sync to init the state
-  auto state = receive<StatePacket>(recv_socket);
-  if (state.type == PacketType::Error) {
-    fmt::print("Error receiving initial state\n");
-    return;
+  bool receivedInitialState = false;
+  while(!receivedInitialState){
+    auto state = receive<StatePacket>(recv_state_socket);
+    if (state.type == PacketType::Error) {
+      fmt::print("Error receiving initial state\n");
+      //return false;
+    }
+    else{
+      statePacket = state;
+      receivedInitialState = true;
+    }
   }
-  statePacket = state;
 
-  fmt::print("Starting udp update thread\n");
+  fmt::print("Starting udp update threads\n");
   //stateUdpThread = std::thread(&Sim::udpUpdate, this);
-  stateUdpThread = std::thread(updUpdateThread, this);
+  stateUdpThread = std::thread(updStateUpdateThread, this);
+  rcUdpThread = std::thread(updRcUpdateThread, this);
+
+  return true;
 }
 
-bool Sim::udpUpdate(){
+bool Sim::udpStateUpdate(){
   StatePacket tempState;
   {
     std::lock_guard<std::mutex> guard(statePacketMutex);
     tempState = statePacket;
   }
 
-  const auto diff = hr_clock::now() - start;
-  double diffd = ((double) to_us(diff)) / 1000000.0;
-
   if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
     last_osd_time = micros_passed;
     StateOsdUpdatePacket update;
-
-    update.time = diffd;
 
     update.angularVelocity = tempState.angularVelocity;
     update.linearVelocity = tempState.linearVelocity;
@@ -474,11 +534,9 @@ bool Sim::udpUpdate(){
         update.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
       }
     }
-    send_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateOsdUpdatePacket));
+    send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateOsdUpdatePacket));
   } else {
     StateUpdatePacket update;
-
-    update.time = diffd;
 
     update.angularVelocity = tempState.angularVelocity;
     update.linearVelocity = tempState.linearVelocity;
@@ -486,13 +544,12 @@ bool Sim::udpUpdate(){
     update.motorRpm[1] = tempState.motorRpm[1];
     update.motorRpm[2] = tempState.motorRpm[2];
     update.motorRpm[3] = tempState.motorRpm[3];
-    send_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
+    send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
   }
 
-  
-  auto state = receive<StatePacket>(recv_socket);
+  auto state = receive<StatePacket>(recv_state_socket);
   if (state.type == PacketType::Error) {
-    fmt::print("Error receiving packet\n");
+    fmt::print("Error receiving StatePacket packet\n");
     return true;
   }
 
@@ -504,44 +561,83 @@ bool Sim::udpUpdate(){
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
   statePacketUpdate = state;
+  newStateReceived = true;
+
   return true;
 }
 
+bool Sim::udpRcUpdate(){ 
+  auto state = receive<StateRcUpdatePacket>(recv_rcdat_socket);
+  if (state.type == PacketType::Error) {
+    fmt::print("Error receiving StateRcUpdatePacket packet\n");
+    return true;
+  }
+
+  std::lock_guard<std::mutex> guard(rcMutex);
+  set_rc_data(state.rcData, micros_passed & 0xFFFFFFFF /*static_cast<uint32_t>(state.delta * 1e6)*/);
+  return true;
+}
+
+int64_t stepCount = 0;
+int64_t stepTimeSum = 0;
+std::chrono::system_clock::time_point lastStepTime;
+
 bool Sim::step() {
+  //std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  //calculate time diff
+  const auto now = hr_clock::now();
+  const auto stepTime = now - lastStepTime;
+
+  int64_t stepTimeUS = to_us(stepTime);
+
+  //TODO: if stepTimeUS is smaller than the freq with which the physics are updated
+  // on the other side, then the linear and angular state has to be accumulated!!!
+
+
+  //spin lock
+  if(stepTimeUS < 2000){
+    return true;
+  }
+  
+  lastStepTime = now;
+  stepTimeUS = std::min(stepTimeUS, (int64_t)32000);
+  //stepTimeUS = std::max(stepTimeUS, (int64_t)1000);
+
+  stepCount++;
+  stepTimeSum += stepTimeUS;
+
+  if((stepCount % 1000) == 0){
+    avgStepTime = stepTimeSum / stepCount;
+    stepCount = 1;
+    stepTimeSum = stepTimeUS;
+  }
+
+
   armingDisabledFlags = (int)bf::getArmingDisableFlags();
 
-  std::this_thread::sleep_for(std::chrono::milliseconds(1));
-
-  const auto diff = hr_clock::now() - start;
-  double diffUS = to_us(diff);
-
-  const auto deltaMicros = 20000;//diffUS;//int(state.delta * 1e6);
-  total_delta += deltaMicros;
-
-  // const auto last = hr_clock::now();
-
-  
-
-  // auto dyad_time = hr_clock::now() - last;
-  // long long dyad_time_i = to_us(dyad_time);
+  //10k seems to run ok
+  total_delta += stepTimeUS;
 
   dyad_update();
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
+  if(newStateReceived){
+    // update state
+    statePacket.linearVelocity  = statePacketUpdate.linearVelocity;
+    statePacket.angularVelocity = statePacketUpdate.angularVelocity;
+    statePacket.vbat            = statePacketUpdate.vbat;
+    memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
+  
+    newStateReceived = false;
+  }
 
-  // update state
-  statePacket.linearVelocity = statePacketUpdate.linearVelocity;
-  statePacket.angularVelocity = statePacketUpdate.angularVelocity;
-  memcpy( statePacket.rcData, statePacketUpdate.rcData, 8 * sizeof(float) );
-  memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
-
-  // update rc at 100Hz, otherwise rx loss gets reported:
-  set_rc_data(statePacket.rcData);
+  //rc data is updated independently
 
   for (auto k = 0u; total_delta - DELTA >= 0; k++) {
     total_delta -= DELTA;
     micros_passed += DELTA;
-    const float dt = DELTA / 1e6f;
+    const double dt = DELTA / 1e6f;
 
     set_gyro(statePacket, acceleration);
 
@@ -558,13 +654,35 @@ bool Sim::step() {
     if (statePacket.crashed > 0) continue;
 
     float motorsTorque = calculate_motors(dt, statePacket, motorsState);
-
     acceleration = calculate_physics(dt, statePacket, motorsState, motorsTorque);
+
+    updateBat(dt);
   }
 
-  // state update was here
+  return running;
+}
 
-  return true;
+void Sim::stop(){
+  running = false;
+
+  recv_state_socket.close();
+  recv_rcdat_socket.close();
+  send_state_socket.close();
+
+  if(stateUdpThread.joinable()){
+    stateUdpThread.join();
+  }
+  stopped = true;
+}
+
+float Sim::getRcData(uint8_t channel){
+  std::lock_guard<std::mutex> guard(rcMutex);
+  return rc_data[channel];
+}
+
+uint32_t Sim::getRcDataTimeUs(){
+  std::lock_guard<std::mutex> guard(rcMutex);
+  return rcDataReceptionTimeUs;
 }
 
 /*********************

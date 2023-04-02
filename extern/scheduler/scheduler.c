@@ -484,11 +484,12 @@ FAST_CODE void scheduler(void)
 
         // Once close to the timing boundary, poll for it's arrival
         if (schedLoopRemainingCycles < schedLoopStartCycles) {
+
             if (schedLoopStartCycles > schedLoopStartMinCycles) {
                 schedLoopStartCycles -= schedLoopStartDeltaDownCycles;
             }
 /*
-#if !defined(UNIT_TEST)
+#if !defined(UNIT_TEST) && !defined(SIMULATOR_MULTITHREAD)
             while (schedLoopRemainingCycles > 0) {
                 nowCycles = getCycleCounter();
                 schedLoopRemainingCycles = cmpTimeCycles(nextTargetCycles, nowCycles);
@@ -496,6 +497,7 @@ FAST_CODE void scheduler(void)
             DEBUG_SET(DEBUG_SCHEDULER_DETERMINISM, 0, clockCyclesTo10thMicros(cmpTimeCycles(nowCycles, lastTargetCycles)));
 #endif
 */
+
             currentTimeUs = micros();
             taskExecutionTimeUs += schedulerExecuteTask(gyroTask, currentTimeUs);
 

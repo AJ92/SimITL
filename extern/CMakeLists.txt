@@ -85,7 +85,7 @@ set(BETAFLIGHT_SOURCES
   sensors/gyro.c
   sensors/gyro_init.c
   sensors/boardalignment.c
-  sensors/battery.c
+  #sensors/battery.c
   sensors/barometer.c
   sensors/voltage.c
   sensors/current.c
@@ -177,6 +177,7 @@ file(GLOB BETAFLIGHT_G_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/io/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/scheduler/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/sensors/*.c"
 )
 
 set(BETAFLIGHT_SOURCES 
