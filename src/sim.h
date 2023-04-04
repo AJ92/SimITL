@@ -80,6 +80,7 @@ private:
   float prop_torque(float rpm, float vel);
 
   void updateBat(double dt);
+  void updateNoise(double dt, StatePacket& state);
 
   // protected for testing
 protected:

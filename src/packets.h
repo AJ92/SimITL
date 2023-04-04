@@ -71,7 +71,20 @@ struct StatePacket{
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
 
-  float motorRpm[4] {};
+  // length is amplitude per axis
+  Vec3F motor1Imbalance {};
+  Vec3F motor2Imbalance {};
+  Vec3F motor3Imbalance {};
+  Vec3F motor4Imbalance {};
+
+  float gyroBaseNoiseAmp = 0.0f;
+  float gyrobaseNoiseFreq = 0.0f;
+
+  float frameHarmonic1Amp = 0.0f;
+  float frameHarmonic1Freq = 0.0f;
+
+  float frameHarmonic2Amp = 0.0f;
+  float frameHarmonic2Freq = 0.0f;
 
   float vbat = 0.0f;
 

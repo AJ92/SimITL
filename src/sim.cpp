@@ -258,7 +258,6 @@ float Sim::calculate_motors(double dt,
 
         motors[i].thrust = prop_thrust(rpm, vel);
         motors[i].rpm = rpm;
-        state.motorRpm[i] = rpm;
         resPropTorque += motor_dir[i] * torque;
     }
 
@@ -295,6 +294,62 @@ void Sim::updateBat(double dt) {
 
   batCapacity -= (rpmSum / initPacket.propMaxRpm) * 800.0f * (1.0f / batCapacity) * dt;
   batCapacity = std::max(batCapacity, 0.0f);
+}
+
+// -1.0 , 1.0
+static float randf(){
+  return (static_cast<float>(rand()) / static_cast <float> (RAND_MAX)) * 2.0f - 1.0f;
+}
+
+static float rpmToHz(float rpm){
+  return rpm * 0.016666666666f;
+}
+
+static float oscillation1f(float amplitude, float frequencyHz, float timeSec){
+  const float phaseShift = 0.0f;                                                // to rad
+  return amplitude * sinf((2.0f * M_PIf * frequencyHz * timeSec  + phaseShift)  * (180.0 / M_PI));
+}
+
+void Sim::updateNoise(double dt, StatePacket& state){
+  float timeSec = micros_passed / 1e6f;
+  float m1Hz = rpmToHz(motorsState[0].rpm);
+  float m2Hz = rpmToHz(motorsState[1].rpm);
+  float m3Hz = rpmToHz(motorsState[2].rpm);
+  float m4Hz = rpmToHz(motorsState[3].rpm);
+
+  float maxRpm = (initPacket.motorKV * initPacket.quadBatCellCount * 4.2f);
+
+  float rpmFactorM1 = std::max(0.0f, motorsState[0].rpm  - 5000.0f) / maxRpm;
+  float rpmFactorM2 = std::max(0.0f, motorsState[1].rpm  - 5000.0f) / maxRpm;
+  float rpmFactorM3 = std::max(0.0f, motorsState[2].rpm  - 5000.0f) / maxRpm;
+  float rpmFactorM4 = std::max(0.0f, motorsState[3].rpm  - 5000.0f) / maxRpm; 
+
+  float noiseX = 
+    oscillation1f(state.motor1Imbalance.x, m1Hz, timeSec) * rpmFactorM1 +
+    oscillation1f(state.motor2Imbalance.x, m2Hz, timeSec) * rpmFactorM2 +
+    oscillation1f(state.motor3Imbalance.x, m3Hz, timeSec) * rpmFactorM3 +
+    oscillation1f(state.motor4Imbalance.x, m4Hz, timeSec) * rpmFactorM4;
+
+  float noiseY = 
+    oscillation1f(state.motor1Imbalance.y, m1Hz, timeSec) * rpmFactorM1 +
+    oscillation1f(state.motor2Imbalance.y, m2Hz, timeSec) * rpmFactorM2 +
+    oscillation1f(state.motor3Imbalance.y, m3Hz, timeSec) * rpmFactorM3 +
+    oscillation1f(state.motor4Imbalance.y, m4Hz, timeSec) * rpmFactorM4;
+
+  float noiseZ = 
+    oscillation1f(state.motor1Imbalance.y, m1Hz, timeSec) * rpmFactorM1 +
+    oscillation1f(state.motor2Imbalance.y, m2Hz, timeSec) * rpmFactorM2 +
+    oscillation1f(state.motor3Imbalance.y, m3Hz, timeSec) * rpmFactorM3 +
+    oscillation1f(state.motor4Imbalance.y, m4Hz, timeSec) * rpmFactorM4;
+
+  // white noise
+  float whiteNoiseX = randf() * state.gyroBaseNoiseAmp;
+  float whiteNoiseY = randf() * state.gyroBaseNoiseAmp;
+  float whiteNoiseZ = randf() * state.gyroBaseNoiseAmp;
+
+  state.angularVelocity.x += noiseX + whiteNoiseX;
+  state.angularVelocity.y += noiseY + whiteNoiseY;
+  state.angularVelocity.z += noiseZ + whiteNoiseZ;
 }
 
 void Sim::update_rotation(double dt, StatePacket& state) {
@@ -524,10 +579,10 @@ bool Sim::udpStateUpdate(){
 
     update.angularVelocity = tempState.angularVelocity;
     update.linearVelocity = tempState.linearVelocity;
-    update.motorRpm[0] = tempState.motorRpm[0];
-    update.motorRpm[1] = tempState.motorRpm[1];
-    update.motorRpm[2] = tempState.motorRpm[2];
-    update.motorRpm[3] = tempState.motorRpm[3];
+    update.motorRpm[0] = motorsState[0].rpm;
+    update.motorRpm[1] = motorsState[1].rpm;
+    update.motorRpm[2] = motorsState[2].rpm;
+    update.motorRpm[3] = motorsState[3].rpm;
     for (int y = 0; y < VIDEO_LINES; y++) {
       for (int x = 0; x < CHARS_PER_LINE; x++) {
         //TODO: access to osdScreen has to be guarded
@@ -540,10 +595,10 @@ bool Sim::udpStateUpdate(){
 
     update.angularVelocity = tempState.angularVelocity;
     update.linearVelocity = tempState.linearVelocity;
-    update.motorRpm[0] = tempState.motorRpm[0];
-    update.motorRpm[1] = tempState.motorRpm[1];
-    update.motorRpm[2] = tempState.motorRpm[2];
-    update.motorRpm[3] = tempState.motorRpm[3];
+    update.motorRpm[0] = motorsState[0].rpm;
+    update.motorRpm[1] = motorsState[1].rpm;
+    update.motorRpm[2] = motorsState[2].rpm;
+    update.motorRpm[3] = motorsState[3].rpm;
     send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
   }
 
@@ -596,7 +651,7 @@ bool Sim::step() {
 
 
   //spin lock
-  if(stepTimeUS < 2000){
+  if(stepTimeUS < 1800){
     return true;
   }
   
@@ -627,6 +682,21 @@ bool Sim::step() {
     statePacket.linearVelocity  = statePacketUpdate.linearVelocity;
     statePacket.angularVelocity = statePacketUpdate.angularVelocity;
     statePacket.vbat            = statePacketUpdate.vbat;
+
+    statePacket.motor1Imbalance = statePacketUpdate.motor1Imbalance;
+    statePacket.motor2Imbalance = statePacketUpdate.motor2Imbalance;
+    statePacket.motor3Imbalance = statePacketUpdate.motor3Imbalance;
+    statePacket.motor4Imbalance = statePacketUpdate.motor4Imbalance;
+
+    statePacket.gyroBaseNoiseAmp = statePacketUpdate.gyroBaseNoiseAmp;
+    statePacket.gyrobaseNoiseFreq = statePacketUpdate.gyrobaseNoiseFreq;
+
+    statePacket.frameHarmonic1Amp = statePacketUpdate.frameHarmonic1Amp;
+    statePacket.frameHarmonic1Freq = statePacketUpdate.frameHarmonic1Freq;
+
+    statePacket.frameHarmonic2Amp = statePacketUpdate.frameHarmonic2Amp;
+    statePacket.frameHarmonic2Freq = statePacketUpdate.frameHarmonic2Freq;
+
     memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
   
     newStateReceived = false;
@@ -639,6 +709,7 @@ bool Sim::step() {
     micros_passed += DELTA;
     const double dt = DELTA / 1e6f;
 
+    
     set_gyro(statePacket, acceleration);
 
     if (sleep_timer > 0) {
@@ -657,6 +728,7 @@ bool Sim::step() {
     acceleration = calculate_physics(dt, statePacket, motorsState, motorsTorque);
 
     updateBat(dt);
+    updateNoise(dt, statePacket);
   }
 
   return running;
