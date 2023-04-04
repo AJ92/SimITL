@@ -89,7 +89,7 @@ struct StatePacket{
   float vbat = 0.0f;
 
   // 1 true 0 false
-  byte crashed = 0;
+  uint8_t crashed = 0;
 
   // combination of CommandType (bitmask)
   int32_t commands = 0;
@@ -112,7 +112,7 @@ struct StateOsdUpdatePacket{
 
   float motorRpm[4] {};
 
-  byte osd[16*30] {};
+  uint8_t osd[16*30] {};
 };
 
 // rc data needs own refresh rate and is seperate
