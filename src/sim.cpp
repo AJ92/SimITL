@@ -302,12 +302,12 @@ static float randf(){
 }
 
 static float rpmToHz(float rpm){
-  return rpm * 0.016666666666f;
+  return rpm / 60.0f;
 }
 
 static float oscillation1f(float amplitude, float frequencyHz, float timeSec){
-  const float phaseShift = 0.0f;                                                // to rad
-  return amplitude * sinf((2.0f * M_PIf * frequencyHz * timeSec  + phaseShift)  * (180.0 / M_PI));
+  const float phaseShift = 0.0f;
+  return amplitude * sinf(2.0f * M_PIf * frequencyHz * timeSec  + phaseShift);
 }
 
 void Sim::updateNoise(double dt, StatePacket& state){

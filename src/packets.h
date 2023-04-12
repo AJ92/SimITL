@@ -37,6 +37,7 @@ struct Vec3F{
   float z = 0.0f;
 };
 
+// initial quad settings.
 struct InitPacket{
   PacketType type = PacketType::Init;
 
@@ -61,6 +62,7 @@ struct InitPacket{
   Vec3F quadMotorPos[4] {};
 };
 
+//runtime quad parameters.
 struct StatePacket{
   PacketType type = PacketType::State;
 
