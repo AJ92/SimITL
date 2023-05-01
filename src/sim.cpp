@@ -34,7 +34,12 @@ namespace bf {
     #include "src/target.h"
     #include "sensors/battery_fake.h"
 
+    #include "build/debug.h"
+
     #undef ENABLE_STATE
+
+    //custom macro with bf namespaces
+    #define BF_DEBUG_SET(mode, index, value) do { if (bf::debugMode == (mode)) { bf::debug[(index)] = (value); } } while (0)
 
     void EnableState(stateFlags_t mask) {
         stateFlags |= mask;
@@ -464,6 +469,12 @@ Sim::Sim()
   , recv_rcdat_socket(kissnet::endpoint("localhost", 7778))
   , send_state_socket(kissnet::endpoint("localhost", 6666)) 
 {
+#ifdef _WIN32
+  u_long opt = 1;
+  int32_t SioUdpConnreset = IOC_IN | IOC_VENDOR | 12;
+  ioctlsocket(recv_state_socket, SioUdpConnreset, &opt);
+  ioctlsocket(recv_rcdat_socket, SioUdpConnreset, &opt);
+#endif
   recv_state_socket.bind();
   recv_rcdat_socket.bind();
 }
@@ -531,7 +542,7 @@ bool Sim::connect() {
 
   fmt::print("Initializing dyad\n");
   dyad_init();
-  dyad_setUpdateTimeout(0.001);
+  dyad_setUpdateTimeout(0.004);
 
   fmt::print("Initializing betaflight\n");
   bf::init();
@@ -621,12 +632,24 @@ bool Sim::udpStateUpdate(){
   return true;
 }
 
+
+
+// helper for interpolation
+float interpolate(float a, float b, float i){
+  return a + ((b - a) * i);
+}
+
+int16_t rcUpdateFreqDbg = 0;
+
 bool Sim::udpRcUpdate(){ 
   auto state = receive<StateRcUpdatePacket>(recv_rcdat_socket);
   if (state.type == PacketType::Error) {
     fmt::print("Error receiving StateRcUpdatePacket packet\n");
     return true;
   }
+
+  rcUpdateFreqDbg -= 5000;
+  BF_DEBUG_SET(bf::DEBUG_SIM, 3, rcUpdateFreqDbg);
 
   std::lock_guard<std::mutex> guard(rcMutex);
   set_rc_data(state.rcData, micros_passed & 0xFFFFFFFF /*static_cast<uint32_t>(state.delta * 1e6)*/);
@@ -657,7 +680,6 @@ bool Sim::step() {
   
   lastStepTime = now;
   stepTimeUS = std::min(stepTimeUS, (int64_t)32000);
-  //stepTimeUS = std::max(stepTimeUS, (int64_t)1000);
 
   stepCount++;
   stepTimeSum += stepTimeUS;
@@ -668,19 +690,29 @@ bool Sim::step() {
     stepTimeSum = stepTimeUS;
   }
 
-
   armingDisabledFlags = (int)bf::getArmingDisableFlags();
 
-  //10k seems to run ok
   total_delta += stepTimeUS;
 
   dyad_update();
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
   if(newStateReceived){
+
+    BF_DEBUG_SET(bf::DEBUG_SIM, 0, static_cast<int16_t>((statePacket.angularVelocity.x - statePacketUpdate.angularVelocity.x) * 30000.0f));
+    BF_DEBUG_SET(bf::DEBUG_SIM, 1, static_cast<int16_t>((statePacket.angularVelocity.y - statePacketUpdate.angularVelocity.y) * 30000.0f));
+    BF_DEBUG_SET(bf::DEBUG_SIM, 2, static_cast<int16_t>((statePacket.angularVelocity.z - statePacketUpdate.angularVelocity.z) * 30000.0f));
+    
+    
     // update state
     statePacket.linearVelocity  = statePacketUpdate.linearVelocity;
-    statePacket.angularVelocity = statePacketUpdate.angularVelocity;
+
+    float i = 0.2f;
+    statePacket.angularVelocity.x  = interpolate(statePacket.angularVelocity.x, statePacketUpdate.angularVelocity.x, i);
+    statePacket.angularVelocity.y  = interpolate(statePacket.angularVelocity.y, statePacketUpdate.angularVelocity.y, i);
+    statePacket.angularVelocity.z  = interpolate(statePacket.angularVelocity.z, statePacketUpdate.angularVelocity.z, i);
+
+    //statePacket.angularVelocity = statePacketUpdate.angularVelocity;
     statePacket.vbat            = statePacketUpdate.vbat;
 
     statePacket.motor1Imbalance = statePacketUpdate.motor1Imbalance;
