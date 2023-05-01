@@ -542,7 +542,8 @@ bool Sim::connect() {
 
   fmt::print("Initializing dyad\n");
   dyad_init();
-  dyad_setUpdateTimeout(0.004);
+  //non blocking
+  dyad_setUpdateTimeout(0.0);
 
   fmt::print("Initializing betaflight\n");
   bf::init();
@@ -626,8 +627,7 @@ bool Sim::udpStateUpdate(){
   }
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
-  statePacketUpdate = state;
-  newStateReceived = true;
+  statePacketUpdateQueue.emplace(state);
 
   return true;
 }
@@ -661,58 +661,62 @@ int64_t stepTimeSum = 0;
 std::chrono::system_clock::time_point lastStepTime;
 
 bool Sim::step() {
-  //std::this_thread::sleep_for(std::chrono::milliseconds(10));
-
-  //calculate time diff
-  const auto now = hr_clock::now();
-  const auto stepTime = now - lastStepTime;
-
-  int64_t stepTimeUS = to_us(stepTime);
-
-  //TODO: if stepTimeUS is smaller than the freq with which the physics are updated
-  // on the other side, then the linear and angular state has to be accumulated!!!
-
-
-  //spin lock
-  if(stepTimeUS < 1800){
-    return true;
-  }
-  
-  lastStepTime = now;
-  stepTimeUS = std::min(stepTimeUS, (int64_t)32000);
-
-  stepCount++;
-  stepTimeSum += stepTimeUS;
-
-  if((stepCount % 1000) == 0){
-    avgStepTime = stepTimeSum / stepCount;
-    stepCount = 1;
-    stepTimeSum = stepTimeUS;
-  }
-
-  armingDisabledFlags = (int)bf::getArmingDisableFlags();
-
-  total_delta += stepTimeUS;
-
   dyad_update();
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
-  if(newStateReceived){
+  if(statePacketUpdateQueue.size() > 0){
+
+    //calculate time diff
+    const auto now = hr_clock::now();
+    const auto stepTime = now - lastStepTime;
+
+    int64_t stepTimeUS = to_us(stepTime);
+
+    lastStepTime = now;
+    stepTimeUS = std::min(stepTimeUS, static_cast<int64_t>(32000));
+
+    stepCount++;
+    stepTimeSum += stepTimeUS;
+
+    if((stepCount % 1000) == 0){
+      avgStepTime = stepTimeSum / stepCount;
+      stepCount = 1;
+      stepTimeSum = stepTimeUS;
+    }
+
+    StatePacket& statePacketUpdate = statePacketUpdateQueue.front();
+
+    int64_t stateUpdateDelta = static_cast<int64_t>(statePacketUpdate.delta * 1000000.0);
+
+    if(stateUpdateDelta > static_cast<int64_t>(32000)){
+      stateUpdateDelta = static_cast<int64_t>(32000);
+    }
+    if(stateUpdateDelta < static_cast<int64_t>(0)){
+      stateUpdateDelta = static_cast<int64_t>(1000);
+    }
+    
+
+    total_delta += static_cast<uint64_t>(stateUpdateDelta);
 
     BF_DEBUG_SET(bf::DEBUG_SIM, 0, static_cast<int16_t>((statePacket.angularVelocity.x - statePacketUpdate.angularVelocity.x) * 30000.0f));
     BF_DEBUG_SET(bf::DEBUG_SIM, 1, static_cast<int16_t>((statePacket.angularVelocity.y - statePacketUpdate.angularVelocity.y) * 30000.0f));
     BF_DEBUG_SET(bf::DEBUG_SIM, 2, static_cast<int16_t>((statePacket.angularVelocity.z - statePacketUpdate.angularVelocity.z) * 30000.0f));
+    BF_DEBUG_SET(bf::DEBUG_SIM, 3, static_cast<int16_t>(stateUpdateDelta));
     
-    
-    // update state
-    statePacket.linearVelocity  = statePacketUpdate.linearVelocity;
+  
 
+    // update state
     float i = 0.2f;
+    statePacket.linearVelocity.x  = interpolate(statePacket.linearVelocity.x, statePacketUpdate.linearVelocity.x, i);
+    statePacket.linearVelocity.y  = interpolate(statePacket.linearVelocity.y, statePacketUpdate.linearVelocity.y, i);
+    statePacket.linearVelocity.z  = interpolate(statePacket.linearVelocity.z, statePacketUpdate.linearVelocity.z, i);
+    //statePacket.linearVelocity  = statePacketUpdate.linearVelocity;
+
     statePacket.angularVelocity.x  = interpolate(statePacket.angularVelocity.x, statePacketUpdate.angularVelocity.x, i);
     statePacket.angularVelocity.y  = interpolate(statePacket.angularVelocity.y, statePacketUpdate.angularVelocity.y, i);
     statePacket.angularVelocity.z  = interpolate(statePacket.angularVelocity.z, statePacketUpdate.angularVelocity.z, i);
-
     //statePacket.angularVelocity = statePacketUpdate.angularVelocity;
+
     statePacket.vbat            = statePacketUpdate.vbat;
 
     statePacket.motor1Imbalance = statePacketUpdate.motor1Imbalance;
@@ -731,8 +735,14 @@ bool Sim::step() {
 
     memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
   
-    newStateReceived = false;
+    statePacketUpdateQueue.pop();
   }
+  else{
+    // no new data received
+    return true;
+  }
+
+  armingDisabledFlags = (int)bf::getArmingDisableFlags();
 
   //rc data is updated independently
 

@@ -14,6 +14,7 @@
 #include <tuple>
 #include <thread>
 #include <mutex>
+#include <queue>
 
 #include <fmt/format.h>
 #include <kissnet.hpp>
@@ -49,8 +50,7 @@ private:
   StatePacket statePacket = {};
   std::mutex statePacketMutex;
   // state update from rendering side
-  StatePacket statePacketUpdate = {};
-  bool newStateReceived = false;
+  std::queue<StatePacket> statePacketUpdateQueue {};
 
   std::mutex rcMutex;
   uint16_t rc_data[16] {};
