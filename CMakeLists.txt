@@ -59,8 +59,12 @@ target_compile_features(SimFlight PUBLIC cxx_std_17)
 
 target_link_libraries(SimFlight PUBLIC 
   libsim
-  #-lpthread
 )
+
+if (UNIX)
+  target_link_libraries(SimFlight PUBLIC -lpthread)
+endif (UNIX)
+
 
 if (WIN32)
   target_link_libraries(SimFlight PUBLIC wsock32 ws2_32)
