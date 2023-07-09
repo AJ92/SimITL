@@ -139,6 +139,26 @@ inline float clamp(float x, float min, float max) {
     return x;
 }
 
+inline vec3 clamp(const vec3& a, float min, float max) {
+    return {
+      clamp(a[0], min, max),
+      clamp(a[1], min, max),
+      clamp(a[2], min, max)
+    };
+}
+
+inline float interpolate(float a, float b, float i){
+  return a + ((b - a) * i);
+}
+
+inline vec3 interpolate(const vec3& a,const vec3& b, float i){
+  return a + ((b - a) * i);
+}
+
+inline vec3 interpolate(const vec3& a,const vec3& b, const vec3& i){
+  return a + ((b - a) * i);
+}
+
 }  // namespace vmath
 
 #endif

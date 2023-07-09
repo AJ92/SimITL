@@ -41,6 +41,37 @@ public:
     float thrust = 0;
   };
 
+  static Sim& getInstance();
+
+  ~Sim();
+
+  // initialize
+  bool connect();
+  // udp update thread
+  bool udpStateUpdate();
+  // udp rc thread
+  bool udpRcUpdate();
+  // sim update step
+  bool step();
+  //stop threads
+  void stop();
+
+  float getRcData(uint8_t channel);
+  uint32_t getRcDataTimeUs();
+
+  uint64_t micros_passed = 0;
+  int64_t sleep_timer = 0;
+  int64_t simSteps = 0;
+  int64_t bfSchedules = 0;
+  int64_t avgStepTime = 100;
+
+  bool running = false;
+  bool stopped = false;
+
+  std::array<MotorState, 4> motorsState {};
+
+  int armingDisabledFlags = 0;
+
 private:
 
   // initial quad/physics params
@@ -50,7 +81,11 @@ private:
   StatePacket statePacket = {};
   std::mutex statePacketMutex;
   // state update from rendering side
-  std::queue<StatePacket> statePacketUpdateQueue {};
+  std::queue<StatePacket> receivedStatePacketQueue {};
+
+  // updates for rendering side
+  std::queue<StateUpdatePacket> sendStateUpdatePacketQueue {};
+  std::queue<StateOsdUpdatePacket> sendStateOsdUpdatePacketQueue {};
 
   std::mutex rcMutex;
   uint16_t rc_data[16] {};
@@ -82,6 +117,12 @@ private:
   void updateBat(double dt);
   void updateNoise(double dt, StatePacket& state);
 
+  // dyad init called?
+  bool networkingInitialized = false;
+
+  // osd string to check for updates
+  uint8_t osd[16*30] {};
+
   // protected for testing
 protected:
 
@@ -100,37 +141,6 @@ protected:
 
   Sim();
 
-public:
-  uint64_t micros_passed = 0;
-  int64_t sleep_timer = 0;
-  int64_t simSteps = 0;
-  int64_t bfSchedules = 0;
-  int64_t avgStepTime = 100;
-
-  bool running = false;
-  bool stopped = false;
-
-  std::array<MotorState, 4> motorsState {};
-
-  int armingDisabledFlags = 0;
-
-  static Sim& getInstance();
-
-  ~Sim();
-
-  // initialize
-  bool connect();
-  // udp update thread
-  bool udpStateUpdate();
-  // udp rc thread
-  bool udpRcUpdate();
-  // sim update step
-  bool step();
-  //stop threads
-  void stop();
-
-  float getRcData(uint8_t channel);
-  uint32_t getRcDataTimeUs();
 };
 
 #endif

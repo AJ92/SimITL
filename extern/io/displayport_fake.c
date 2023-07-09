@@ -31,12 +31,14 @@ static int release(displayPort_t *displayPort) {
 
 static int clearScreen(displayPort_t *displayPort) {
     UNUSED(displayPort);
+    printf("clearScreen: %i\n", displayPort);
     memset(osdBackBuffer, 0, 16 * 30);
     return 0;
 }
 
 static int drawScreen(displayPort_t *displayPort) {
     UNUSED(displayPort);
+    printf("drawScreen: %i\n", displayPort);
     memcpy(osdScreen, osdBackBuffer, 16 * 30);
     return 0;
 }
@@ -52,6 +54,7 @@ static int writeSys (displayPort_t *displayPort, uint8_t x, uint8_t y, displayPo
 
 static int writeString(displayPort_t *displayPort, uint8_t x, uint8_t y, uint8_t attr, const char *s) {
     UNUSED(displayPort);
+    printf("writeString: %i\n", displayPort);
     //printf("%d, %d: %s\n", x, y, s);
     if (y < VIDEO_LINES) {
         for (int i = 0; s[i] && x + i < CHARS_PER_LINE; i++) {
@@ -65,6 +68,7 @@ static int writeString(displayPort_t *displayPort, uint8_t x, uint8_t y, uint8_t
 static int writeChar(displayPort_t *displayPort, uint8_t x, uint8_t y,
                      uint8_t c) {
     UNUSED(displayPort);
+    printf("writeChar: %i\n", displayPort);
     if (x < CHARS_PER_LINE && y < VIDEO_LINES) {
         osdBackBuffer[y][x] = c;
     }
@@ -92,7 +96,7 @@ static int heartbeat(displayPort_t *displayPort) {
 }
 
 static void redraw(displayPort_t *displayPort){
-
+  printf("redraw: %i\n", displayPort);
 }
 
 static uint32_t txBytesFree(const displayPort_t *displayPort) {
@@ -101,15 +105,27 @@ static uint32_t txBytesFree(const displayPort_t *displayPort) {
 }
 
 static bool layerSupported(displayPort_t *displayPort, displayPortLayer_e layer){
-  return true;
+  printf("layerSupported: %i, layer %i\n", displayPort, (int)layer);
+  if(layer == DISPLAYPORT_LAYER_FOREGROUND){
+    return true;
+  }
+  return false;
 }
 static bool layerSelect(displayPort_t *displayPort, displayPortLayer_e layer){
-  return true;
+  printf("layerSelect: %i, layer %i\n", displayPort, (int)layer);
+  
+  if(layer == DISPLAYPORT_LAYER_FOREGROUND){
+    return true;
+  }
+  return false;
 }
 static bool layerCopy(displayPort_t *displayPort, displayPortLayer_e destLayer, displayPortLayer_e sourceLayer){
+  printf("layerCopy: %i, destLayer %i, sourceLayer %i\n", displayPort, (int)destLayer, (int)sourceLayer);
+  
   return true;
 }
 static bool writeFontCharacter(displayPort_t *instance, uint16_t addr, const struct osdCharacter_s *chr){
+  printf("writeFontCharacter: %i, addr %i, chr %i\n", addr, (int)chr);
   return true;
 }
 static bool checkReady(displayPort_t *displayPort, bool rescan){
@@ -123,6 +139,7 @@ static bool getCanvas(struct displayCanvas_s *canvas, const displayPort_t *displ
   return true;
 }
 static void setBackgroundType(displayPort_t *displayPort, displayPortBackground_e backgroundType){
+  printf("setBackgroundType: %i, backgroundType %i\n", displayPort, (int)backgroundType);
 }
 
 static const displayPortVTable_t fakeDispVTable = {

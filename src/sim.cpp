@@ -511,10 +511,15 @@ void updRcUpdateThread(Sim * sim){
 }
 
 bool Sim::connect() {
-  //reset rc data to valid data...
-  for(int i = 0; i < SIMULATOR_MAX_RC_CHANNELS; i++){
-    rc_data[i] = 1000U;
+
+  if(!networkingInitialized){
+    fmt::print("Initializing dyad\n");
+    dyad_init();
+    networkingInitialized = true;
   }
+
+  //blocking
+  dyad_setUpdateTimeout(1.0);
 
   running = true;
   fmt::print("Waiting for init packet\n");
@@ -530,6 +535,14 @@ bool Sim::connect() {
     }
   }
 
+  //non blocking
+  dyad_setUpdateTimeout(0.0);
+
+  //reset rc data to valid data...
+  for(int i = 0; i < SIMULATOR_MAX_RC_CHANNELS; i++){
+    rc_data[i] = 1000U;
+  }
+
   batVoltage = initPacket.quadBatVoltage;
   batVoltageSag = batVoltage;
   batCapacity = initPacket.quadBatCapacity;
@@ -539,11 +552,6 @@ bool Sim::connect() {
     motorsState[i].position[1] = initPacket.quadMotorPos[i].y;
     motorsState[i].position[2] = initPacket.quadMotorPos[i].z;
   }
-
-  fmt::print("Initializing dyad\n");
-  dyad_init();
-  //non blocking
-  dyad_setUpdateTimeout(0.0);
 
   fmt::print("Initializing betaflight\n");
   bf::init();
@@ -579,39 +587,21 @@ bool Sim::connect() {
 }
 
 bool Sim::udpStateUpdate(){
-  StatePacket tempState;
-  {
+
+  if(sendStateUpdatePacketQueue.size() > 0 || sendStateOsdUpdatePacketQueue.size() > 0){
     std::lock_guard<std::mutex> guard(statePacketMutex);
-    tempState = statePacket;
-  }
 
-  if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
-    last_osd_time = micros_passed;
-    StateOsdUpdatePacket update;
-
-    update.angularVelocity = tempState.angularVelocity;
-    update.linearVelocity = tempState.linearVelocity;
-    update.motorRpm[0] = motorsState[0].rpm;
-    update.motorRpm[1] = motorsState[1].rpm;
-    update.motorRpm[2] = motorsState[2].rpm;
-    update.motorRpm[3] = motorsState[3].rpm;
-    for (int y = 0; y < VIDEO_LINES; y++) {
-      for (int x = 0; x < CHARS_PER_LINE; x++) {
-        //TODO: access to osdScreen has to be guarded
-        update.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
-      }
+    if (sendStateOsdUpdatePacketQueue.size() > 0) {
+      auto& update = sendStateOsdUpdatePacketQueue.front();
+      send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateOsdUpdatePacket));
+      sendStateOsdUpdatePacketQueue.pop();
     }
-    send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateOsdUpdatePacket));
-  } else {
-    StateUpdatePacket update;
 
-    update.angularVelocity = tempState.angularVelocity;
-    update.linearVelocity = tempState.linearVelocity;
-    update.motorRpm[0] = motorsState[0].rpm;
-    update.motorRpm[1] = motorsState[1].rpm;
-    update.motorRpm[2] = motorsState[2].rpm;
-    update.motorRpm[3] = motorsState[3].rpm;
-    send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
+    if(sendStateUpdatePacketQueue.size() > 0) {
+      auto& update = sendStateUpdatePacketQueue.front();
+      send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
+      sendStateUpdatePacketQueue.pop();
+    }
   }
 
   auto state = receive<StatePacket>(recv_state_socket);
@@ -627,16 +617,9 @@ bool Sim::udpStateUpdate(){
   }
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
-  statePacketUpdateQueue.emplace(state);
+  receivedStatePacketQueue.push(state);
 
   return true;
-}
-
-
-
-// helper for interpolation
-float interpolate(float a, float b, float i){
-  return a + ((b - a) * i);
 }
 
 int16_t rcUpdateFreqDbg = 0;
@@ -661,10 +644,12 @@ int64_t stepTimeSum = 0;
 std::chrono::system_clock::time_point lastStepTime;
 
 bool Sim::step() {
+  using namespace vmath;
+
   dyad_update();
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
-  if(statePacketUpdateQueue.size() > 0){
+  if(receivedStatePacketQueue.size() > 0){
 
     //calculate time diff
     const auto now = hr_clock::now();
@@ -684,7 +669,7 @@ bool Sim::step() {
       stepTimeSum = stepTimeUS;
     }
 
-    StatePacket& statePacketUpdate = statePacketUpdateQueue.front();
+    StatePacket& statePacketUpdate = receivedStatePacketQueue.front();
 
     int64_t stateUpdateDelta = static_cast<int64_t>(statePacketUpdate.delta * 1000000.0);
 
@@ -698,24 +683,43 @@ bool Sim::step() {
 
     total_delta += static_cast<uint64_t>(stateUpdateDelta);
 
-    BF_DEBUG_SET(bf::DEBUG_SIM, 0, static_cast<int16_t>((statePacket.angularVelocity.x - statePacketUpdate.angularVelocity.x) * 30000.0f));
-    BF_DEBUG_SET(bf::DEBUG_SIM, 1, static_cast<int16_t>((statePacket.angularVelocity.y - statePacketUpdate.angularVelocity.y) * 30000.0f));
-    BF_DEBUG_SET(bf::DEBUG_SIM, 2, static_cast<int16_t>((statePacket.angularVelocity.z - statePacketUpdate.angularVelocity.z) * 30000.0f));
+    //angular velocity update
+    vec3 currentAngularVelocity;
+    copy(currentAngularVelocity, statePacket.angularVelocity);
+
+    vec3 newAngularVelocity;
+    copy(newAngularVelocity, statePacketUpdate.angularVelocity);
+
+    vec3 angularVelocityDiff = newAngularVelocity - currentAngularVelocity;
+
+    BF_DEBUG_SET(bf::DEBUG_SIM, 0, static_cast<int16_t>(angularVelocityDiff[0] * 30000.0f));
+    BF_DEBUG_SET(bf::DEBUG_SIM, 1, static_cast<int16_t>(angularVelocityDiff[1] * 30000.0f));
+    BF_DEBUG_SET(bf::DEBUG_SIM, 2, static_cast<int16_t>(angularVelocityDiff[2] * 30000.0f));
     BF_DEBUG_SET(bf::DEBUG_SIM, 3, static_cast<int16_t>(stateUpdateDelta));
-    
-  
+
+    float i_angular = 0.1f;
+    //linear interpolation, strength defined by diff between states
+    vec3 angularVelocitySmoothed = currentAngularVelocity + angularVelocityDiff * clamp(abs(angularVelocityDiff) * i_angular, 0.0f, 0.75f);
 
     // update state
-    float i = 0.2f;
-    statePacket.linearVelocity.x  = interpolate(statePacket.linearVelocity.x, statePacketUpdate.linearVelocity.x, i);
-    statePacket.linearVelocity.y  = interpolate(statePacket.linearVelocity.y, statePacketUpdate.linearVelocity.y, i);
-    statePacket.linearVelocity.z  = interpolate(statePacket.linearVelocity.z, statePacketUpdate.linearVelocity.z, i);
-    //statePacket.linearVelocity  = statePacketUpdate.linearVelocity;
+    copy(statePacket.angularVelocity, angularVelocitySmoothed);
 
-    statePacket.angularVelocity.x  = interpolate(statePacket.angularVelocity.x, statePacketUpdate.angularVelocity.x, i);
-    statePacket.angularVelocity.y  = interpolate(statePacket.angularVelocity.y, statePacketUpdate.angularVelocity.y, i);
-    statePacket.angularVelocity.z  = interpolate(statePacket.angularVelocity.z, statePacketUpdate.angularVelocity.z, i);
-    //statePacket.angularVelocity = statePacketUpdate.angularVelocity;
+
+    //linear velocity update
+    vec3 currentLinearVelocity;
+    copy(currentLinearVelocity, statePacket.linearVelocity);
+
+    vec3 newLinearVelocity;
+    copy(newLinearVelocity, statePacketUpdate.linearVelocity);
+
+    vec3 linearVelocityDiff = newLinearVelocity - currentLinearVelocity;
+
+    float i_linear = 0.1f;
+    //linear interpolation, strength defined by diff between states
+    vec3 linearVelocitySmoothed = currentLinearVelocity + linearVelocityDiff * clamp(abs(linearVelocityDiff) * i_linear, 0.0f, 0.75f);
+
+    copy(statePacket.linearVelocity, linearVelocitySmoothed);
+
 
     statePacket.vbat            = statePacketUpdate.vbat;
 
@@ -735,7 +739,55 @@ bool Sim::step() {
 
     memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
   
-    statePacketUpdateQueue.pop();
+    receivedStatePacketQueue.pop();
+
+    //copy osd and check of change
+    bool osdChanged = false;
+    for (int y = 0; y < VIDEO_LINES; y++) {
+      for (int x = 0; x < CHARS_PER_LINE; x++) {
+        //TODO: access to osdScreen has to be guarded
+        if(osd[y * CHARS_PER_LINE + x] != bf::osdScreen[y][x]){
+          osdChanged = true;
+        }
+        osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
+      }
+    }
+
+    //prepare update
+    //if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
+    if (osdChanged) {
+      last_osd_time = micros_passed;
+      StateOsdUpdatePacket update;
+
+      update.angularVelocity = statePacket.angularVelocity;
+      update.linearVelocity = statePacket.linearVelocity;
+      update.motorRpm[0] = motorsState[0].rpm;
+      update.motorRpm[1] = motorsState[1].rpm;
+      update.motorRpm[2] = motorsState[2].rpm;
+      update.motorRpm[3] = motorsState[3].rpm;
+      for (int y = 0; y < VIDEO_LINES; y++) {
+        for (int x = 0; x < CHARS_PER_LINE; x++) {
+          //TODO: access to osdScreen has to be guarded
+          update.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
+        }
+      }
+
+      sendStateOsdUpdatePacketQueue.push(update);
+      
+    } else {
+      StateUpdatePacket update;
+
+      update.angularVelocity = statePacket.angularVelocity;
+      update.linearVelocity = statePacket.linearVelocity;
+      update.motorRpm[0] = motorsState[0].rpm;
+      update.motorRpm[1] = motorsState[1].rpm;
+      update.motorRpm[2] = motorsState[2].rpm;
+      update.motorRpm[3] = motorsState[3].rpm;
+      
+      sendStateUpdatePacketQueue.push(update);
+    }
+
+
   }
   else{
     // no new data received
