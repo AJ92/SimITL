@@ -755,7 +755,7 @@ bool Sim::step() {
 
     //prepare update
     //if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
-    if (osdChanged) {
+    if (osdChanged || (micros_passed - last_osd_time > OSD_UPDATE_TIME)) {
       last_osd_time = micros_passed;
       StateOsdUpdatePacket update;
 
