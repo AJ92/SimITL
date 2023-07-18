@@ -26,7 +26,7 @@ enum PacketType : int32_t {
 enum CommandType : int32_t {
   None      = 0U,
   Stop      = 1U,
-  Reserved1 = 2U,
+  Repair = 2U,
   Reserved2 = 4U,
   Reserved3 = 8U,
 };

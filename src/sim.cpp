@@ -680,6 +680,14 @@ bool Sim::step() {
       stateUpdateDelta = static_cast<int64_t>(1000);
     }
     
+    if((statePacketUpdate.commands & CommandType::Repair) == CommandType::Repair){
+      //recharge
+      batVoltage = initPacket.quadBatVoltage;
+      batVoltageSag = batVoltage;
+      batCapacity = initPacket.quadBatCapacity;
+
+      //todo repair quad
+    }
 
     total_delta += static_cast<uint64_t>(stateUpdateDelta);
 
