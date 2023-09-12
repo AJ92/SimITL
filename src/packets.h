@@ -88,6 +88,8 @@ struct StatePacket{
   float frameHarmonic2Amp = 0.0f;
   float frameHarmonic2Freq = 0.0f;
 
+  float propDamage[4] {};
+
   float vbat = 0.0f;
 
   // 1 true 0 false

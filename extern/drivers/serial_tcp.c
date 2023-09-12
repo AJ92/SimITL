@@ -236,7 +236,8 @@ void tcpDataIn(tcpPort_t *instance, uint8_t *ch, int size) {
     tcpPort_t *s = (tcpPort_t *)instance;
 
     while (size--) {
-        //        printf("%c", *ch);
+        //printf("%c", *ch);
+        //printf("%02X", *ch);
         s->port.rxBuffer[s->port.rxBufferHead] = *(ch++);
         if (s->port.rxBufferHead + 1 >= s->port.rxBufferSize) {
             s->port.rxBufferHead = 0;
@@ -244,7 +245,7 @@ void tcpDataIn(tcpPort_t *instance, uint8_t *ch, int size) {
             s->port.rxBufferHead++;
         }
     }
-    //    printf("\n");
+    //printf("\n");
 }
 
 static const struct serialPortVTable tcpVTable = {
