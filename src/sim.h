@@ -8,6 +8,8 @@
 #include "vector_math.h"
 #include "packets.h"
 
+#include "low_pass_filter.h"
+
 #include <array>
 #include <cstdint>
 #include <optional>
@@ -36,9 +38,10 @@ auto to_ms(std::chrono::duration<R, P> t) {
 class Sim {
 public:
   struct MotorState {
-    vmath::vec3 position = {0, 0, 0};
-    float rpm = 0;
-    float thrust = 0;
+    vmath::vec3 position = {0.0f, 0.0f, 0.0f};
+    float rpm = 0.0f;
+    float thrust = 0.0f;
+    float phase = 0.0f;
   };
 
   static Sim& getInstance();
@@ -96,6 +99,10 @@ private:
   uint64_t last_osd_time = 0;
   vmath::vec3 acceleration = {0, 0, 0};
 
+  LowPassFilter gyroLowPassFilterX{};
+  LowPassFilter gyroLowPassFilterY{};
+  LowPassFilter gyroLowPassFilterZ{};
+
   //current battery voltage
   float batVoltage    = 0.0f; // in V
   float batVoltageSag = 0.0f; // in V but saged
@@ -115,7 +122,9 @@ private:
   float prop_torque(float rpm, float vel);
 
   void updateBat(double dt);
-  void updateNoise(double dt, StatePacket& state);
+  float motorNoise(const double dt, MotorState& motorState, float yAxis);
+  void updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise);
+  void updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise);
 
   // dyad init called?
   bool networkingInitialized = false;
@@ -126,7 +135,7 @@ private:
   // protected for testing
 protected:
 
-  void set_gyro(const StatePacket& state, const vmath::vec3& acceleration);
+  void set_gyro(const StatePacket& state, const vmath::vec3& acceleration, const vmath::vec3& noise);
 
   float calculate_motors(double dt,
                          StatePacket& state,

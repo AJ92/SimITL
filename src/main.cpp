@@ -46,7 +46,7 @@ int main() {
         long long delta = sim->micros_passed - elapsedUs;
 
         clearline();
-        fmt::print("dt: {:5.2f}, Sl/s: {:8.1f}, sch/s: {:8.1f}, avgST: {}, krpm: {:5.2f} {:5.2f} {:5.2f} {:5.2f}, dis: {}",
+        fmt::print("dt: {:5.5f}, Sl/s: {:8.1f}, sch/s: {:8.1f}, avgST: {}, krpm: {:5.2f} {:5.2f} {:5.2f} {:5.2f}, dis: {}",
           delta / 1e6,
           (float)sim->simSteps -
           (float)sim->bfSchedules,

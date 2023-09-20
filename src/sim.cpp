@@ -110,14 +110,17 @@ const auto FREQUENCY = 20e3;//40e3;
 const auto DELTA = 1e6 / FREQUENCY;
 
 void Sim::set_gyro(const StatePacket& state,
-                         const vmath::vec3& acceleration) {
+                   const vmath::vec3& acceleration, 
+                   const vmath::vec3& noise
+) {
     using namespace vmath;
     mat3 basis;
     copy(basis, state.rotation);
-
     quat rotation = mat3_to_quat(basis);
+
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
+    angularVelocity = angularVelocity + noise;
     vec3 gyro = xform_inv(basis, angularVelocity);
 
     vec3 accelerometer =
@@ -314,56 +317,89 @@ static float rpmToHz(float rpm){
   return rpm / 60.0f;
 }
 
-static float oscillation1f(float amplitude, float frequencyHz, float timeSec){
-  const float phaseShift = 0.0f;
-  return amplitude * sinf(2.0f * M_PIf * frequencyHz * timeSec  + phaseShift);
+float Sim::motorNoise(const double dt, MotorState& motor, float yAxis){
+  float motorFreqHz = rpmToHz(motor.rpm);
+
+  constexpr float pi2 = M_PI * 2.0f;
+  float phaseShift = (pi2 * dt * motorFreqHz);// + (yAxis * M_PI / 2.0f);
+  float phase = motor.phase + phaseShift;
+  if(phase > pi2){
+    phase = phase - pi2;
+  }
+  motor.phase = phase;
+  return sinf(phase);
 }
 
-void Sim::updateNoise(double dt, StatePacket& state){
-  float timeSec = micros_passed / 1e6f;
-  float m1Hz = rpmToHz(motorsState[0].rpm);
-  float m2Hz = rpmToHz(motorsState[1].rpm);
-  float m3Hz = rpmToHz(motorsState[2].rpm);
-  float m4Hz = rpmToHz(motorsState[3].rpm);
-
-  float maxRpm = (initPacket.motorKV * initPacket.quadBatCellCount * 4.2f);
-
-  float rpmFactorM1 = std::max(0.0f, motorsState[0].rpm  - 5000.0f) / maxRpm;
-  float rpmFactorM2 = std::max(0.0f, motorsState[1].rpm  - 5000.0f) / maxRpm;
-  float rpmFactorM3 = std::max(0.0f, motorsState[2].rpm  - 5000.0f) / maxRpm;
-  float rpmFactorM4 = std::max(0.0f, motorsState[3].rpm  - 5000.0f) / maxRpm; 
-
-  float dmgFactorM1 = (state.propDamage[0] + 0.01f) * 30.0f;
-  float dmgFactorM2 = (state.propDamage[1] + 0.01f) * 30.0f;
-  float dmgFactorM3 = (state.propDamage[2] + 0.01f) * 30.0f;
-  float dmgFactorM4 = (state.propDamage[3] + 0.01f) * 30.0f;
-
-  float noiseX = 
-    oscillation1f(state.motor1Imbalance.x, m1Hz, timeSec) * rpmFactorM1 * dmgFactorM1 +
-    oscillation1f(state.motor2Imbalance.x, m2Hz, timeSec) * rpmFactorM2 * dmgFactorM2 +
-    oscillation1f(state.motor3Imbalance.x, m3Hz, timeSec) * rpmFactorM3 * dmgFactorM3 +
-    oscillation1f(state.motor4Imbalance.x, m4Hz, timeSec) * rpmFactorM4 * dmgFactorM4;
-
-  float noiseY = 
-    oscillation1f(state.motor1Imbalance.y, m1Hz, timeSec) * rpmFactorM1 * dmgFactorM1 +
-    oscillation1f(state.motor2Imbalance.y, m2Hz, timeSec) * rpmFactorM2 * dmgFactorM2 +
-    oscillation1f(state.motor3Imbalance.y, m3Hz, timeSec) * rpmFactorM3 * dmgFactorM3 +
-    oscillation1f(state.motor4Imbalance.y, m4Hz, timeSec) * rpmFactorM4 * dmgFactorM4;
-
-  float noiseZ = 
-    oscillation1f(state.motor1Imbalance.y, m1Hz, timeSec) * rpmFactorM1 * dmgFactorM1 +
-    oscillation1f(state.motor2Imbalance.y, m2Hz, timeSec) * rpmFactorM2 * dmgFactorM2 +
-    oscillation1f(state.motor3Imbalance.y, m3Hz, timeSec) * rpmFactorM3 * dmgFactorM3 +
-    oscillation1f(state.motor4Imbalance.y, m4Hz, timeSec) * rpmFactorM4 * dmgFactorM4;
-
+void Sim::updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise){
   // white noise
   float whiteNoiseX = randf() * state.gyroBaseNoiseAmp;
   float whiteNoiseY = randf() * state.gyroBaseNoiseAmp;
   float whiteNoiseZ = randf() * state.gyroBaseNoiseAmp;
 
-  state.angularVelocity.x += noiseX + whiteNoiseX;
-  state.angularVelocity.y += noiseY + whiteNoiseY;
-  state.angularVelocity.z += noiseZ + whiteNoiseZ;
+  angularNoise[0] = whiteNoiseX;
+  angularNoise[1] = whiteNoiseY;
+  angularNoise[2] = whiteNoiseZ;
+}
+
+void Sim::updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise){
+  //float timeSec = static_cast<double>(micros_passed) / 1e6;
+  float maxRpm = initPacket.motorKV * initPacket.quadBatCellCount * 4.2;
+
+  //float m1Hz = rpmToHz(motorsState[0].rpm);
+  float rpmFactorM1 = std::max(0.0f, motorsState[0].rpm) / maxRpm;
+  float rpmFactorM2 = std::max(0.0f, motorsState[1].rpm) / maxRpm;
+  float rpmFactorM3 = std::max(0.0f, motorsState[2].rpm) / maxRpm;
+  float rpmFactorM4 = std::max(0.0f, motorsState[3].rpm) / maxRpm;
+
+  float dmgFactorM1 = (state.propDamage[0] + 0.05f);
+  float dmgFactorM2 = (state.propDamage[1] + 0.05f);
+  float dmgFactorM3 = (state.propDamage[2] + 0.05f);
+  float dmgFactorM4 = (state.propDamage[3] + 0.05f);
+
+  // only call once per dt, adapts motor phase!
+  float m1Noise = motorNoise(dt, motorsState[0], 0.0f);
+  float m2Noise = motorNoise(dt, motorsState[1], 0.0f);
+  float m3Noise = motorNoise(dt, motorsState[2], 0.0f);
+  float m4Noise = motorNoise(dt, motorsState[3], 0.0f);
+
+
+  float noiseX = 
+    m1Noise * rpmFactorM1 * dmgFactorM1 * state.motor1Imbalance.x +
+    m2Noise * rpmFactorM2 * dmgFactorM2 * state.motor2Imbalance.x +
+    m3Noise * rpmFactorM3 * dmgFactorM3 * state.motor3Imbalance.x +
+    m4Noise * rpmFactorM4 * dmgFactorM4 * state.motor4Imbalance.x;
+
+  float noiseY = 
+    m1Noise * rpmFactorM1 * dmgFactorM1 * state.motor1Imbalance.y +
+    m2Noise * rpmFactorM2 * dmgFactorM2 * state.motor2Imbalance.y +
+    m3Noise * rpmFactorM3 * dmgFactorM3 * state.motor3Imbalance.y +
+    m4Noise * rpmFactorM4 * dmgFactorM4 * state.motor4Imbalance.y;
+
+  BF_DEBUG_SET(bf::DEBUG_SIM, 3, (1.0f + noiseX) * 1000.0f);
+  //BF_DEBUG_SET(bf::DEBUG_SIM, 2, m1Hz);
+
+  /*
+    oscillation1f(state.motor1Imbalance.x * rpmFactorM1 * dmgFactorM1, m1Hz, timeSec) + 
+    oscillation1f(state.motor2Imbalance.x * rpmFactorM2 * dmgFactorM2, m2Hz, timeSec) +
+    oscillation1f(state.motor3Imbalance.x * rpmFactorM3 * dmgFactorM3, m3Hz, timeSec) +
+    oscillation1f(state.motor4Imbalance.x * rpmFactorM4 * dmgFactorM4, m4Hz, timeSec);
+
+  float noiseY = 
+    oscillation1f(state.motor1Imbalance.y * rpmFactorM1 * dmgFactorM1, m1Hz + M_PIf / 2.0f, timeSec) +
+    oscillation1f(state.motor2Imbalance.y * rpmFactorM2 * dmgFactorM2, m2Hz + M_PIf / 2.0f, timeSec) +
+    oscillation1f(state.motor3Imbalance.y * rpmFactorM3 * dmgFactorM3, m3Hz + M_PIf / 2.0f, timeSec) +
+    oscillation1f(state.motor4Imbalance.y * rpmFactorM4 * dmgFactorM4, m4Hz + M_PIf / 2.0f, timeSec);
+
+  float noiseZ = 
+    (noiseX + noiseY) * state.motor1Imbalance.z * state.motor2Imbalance.z * state.motor3Imbalance.z * state.motor4Imbalance.z;
+  */
+
+  double noiseZ = noiseX * noiseY * 0.1f; 
+
+  angularNoise[0] = noiseX;
+  angularNoise[1] = 0.0f; // noiseY;
+  angularNoise[2] = 0.0f; // noiseZ;
+
 }
 
 void Sim::update_rotation(double dt, StatePacket& state) {
@@ -644,7 +680,7 @@ bool Sim::udpRcUpdate(){
   }
 
   rcUpdateFreqDbg -= 5000;
-  BF_DEBUG_SET(bf::DEBUG_SIM, 3, rcUpdateFreqDbg);
+  //BF_DEBUG_SET(bf::DEBUG_SIM, 3, rcUpdateFreqDbg);
 
   if(lastRcValue != state.rcData[2]){
 
@@ -654,7 +690,7 @@ bool Sim::udpRcUpdate(){
     lastRcStepTime = now;
 
     //printf("rxSampleDiff @%d v:%f\n", stepTimeMS, (state.rcData[2] * 1000.0f) + 1000.0f);
-    BF_DEBUG_SET(bf::DEBUG_SIM, 2, (state.rcData[2] * 1000.0f) + 1000.0f);
+    //BF_DEBUG_SET(bf::DEBUG_SIM, 2, (state.rcData[2] * 1000.0f) + 1000.0f);
     lastRcValue = state.rcData[2];
   }
 
@@ -709,8 +745,6 @@ bool Sim::step() {
       batVoltage = initPacket.quadBatVoltage;
       batVoltageSag = batVoltage;
       batCapacity = initPacket.quadBatCapacity;
-
-      //todo repair quad
     }
 
     total_delta += static_cast<uint64_t>(stateUpdateDelta);
@@ -729,13 +763,12 @@ bool Sim::step() {
     //BF_DEBUG_SET(bf::DEBUG_SIM, 2, static_cast<int16_t>(angularVelocityDiff[2] * 30000.0f));
     //BF_DEBUG_SET(bf::DEBUG_SIM, 3, static_cast<int16_t>(stateUpdateDelta));
 
-    float i_angular = 0.1f;
+    float i_angular = 0.2f;
     //linear interpolation, strength defined by diff between states
     vec3 angularVelocitySmoothed = currentAngularVelocity + angularVelocityDiff * clamp(abs(angularVelocityDiff) * i_angular, 0.0f, 0.75f);
 
     // update state
     copy(statePacket.angularVelocity, angularVelocitySmoothed);
-
 
     //linear velocity update
     vec3 currentLinearVelocity;
@@ -746,12 +779,11 @@ bool Sim::step() {
 
     vec3 linearVelocityDiff = newLinearVelocity - currentLinearVelocity;
 
-    float i_linear = 0.1f;
+    float i_linear = 0.05f;
     //linear interpolation, strength defined by diff between states
     vec3 linearVelocitySmoothed = currentLinearVelocity + linearVelocityDiff * clamp(abs(linearVelocityDiff) * i_linear, 0.0f, 0.75f);
 
     copy(statePacket.linearVelocity, linearVelocitySmoothed);
-
 
     statePacket.vbat            = statePacketUpdate.vbat;
 
@@ -836,13 +868,24 @@ bool Sim::step() {
 
   //rc data is updated independently
 
+  vec3 gyroNoise;
+  vec3 motorNoise;
+  vec3 combinedGyroNoise;
+
   for (auto k = 0u; total_delta - DELTA >= 0; k++) {
     total_delta -= DELTA;
     micros_passed += DELTA;
     const double dt = DELTA / 1e6f;
 
-    
-    set_gyro(statePacket, acceleration);
+    updateGyroNoise(statePacket, gyroNoise);
+    updateMotorNoise(dt, statePacket, motorNoise);
+    combinedGyroNoise = gyroNoise + motorNoise;
+    constexpr float cutoffFreq = 300.0f;
+    combinedGyroNoise[0] = gyroLowPassFilterX.update(combinedGyroNoise[0], static_cast<float>(dt), cutoffFreq);
+    combinedGyroNoise[1] = gyroLowPassFilterY.update(combinedGyroNoise[1], static_cast<float>(dt), cutoffFreq);
+    combinedGyroNoise[2] = gyroLowPassFilterZ.update(combinedGyroNoise[2], static_cast<float>(dt), cutoffFreq);
+
+    set_gyro(statePacket, acceleration, combinedGyroNoise);
 
     if (sleep_timer > 0) {
       sleep_timer -= DELTA;
@@ -857,11 +900,9 @@ bool Sim::step() {
     if (statePacket.crashed > 0) continue;
 
     float motorsTorque = calculate_motors(dt, statePacket, motorsState);
-    updateNoise(dt, statePacket);
     acceleration = calculate_physics(dt, statePacket, motorsState, motorsTorque);
 
     updateBat(dt);
-    
   }
 
   return running;
