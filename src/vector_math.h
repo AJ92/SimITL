@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 namespace vmath {
+using vec2 = std::array<float, 2>;
 using vec3 = std::array<float, 3>;
 using mat3 = std::array<vec3, 3>;
 using quat = std::array<float, 4>;

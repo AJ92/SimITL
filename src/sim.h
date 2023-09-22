@@ -37,10 +37,12 @@ auto to_ms(std::chrono::duration<R, P> t) {
 
 class Sim {
 public:
+  // per motor realtime state
   struct MotorState {
     vmath::vec3 position = {0.0f, 0.0f, 0.0f};
     float rpm = 0.0f;
     float thrust = 0.0f;
+    // sinusoidal phase of the motor rotation used for noise simulation
     float phase = 0.0f;
   };
 
@@ -117,12 +119,12 @@ private:
 
   static void update_rotation(double dt, StatePacket& state);
 
-  float motor_torque(float volts, float rpm);
+  float motor_torque(float volts, float rpm, float kV, float R, float I0);
   float prop_thrust(float rpm, float vel);
   float prop_torque(float rpm, float vel);
 
   void updateBat(double dt);
-  float motorNoise(const double dt, MotorState& motorState, float yAxis);
+  vmath::vec2 motorNoise(const double dt, MotorState& motorState);
   void updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise);
   void updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise);
 

@@ -41,9 +41,9 @@ struct Vec3F{
 struct InitPacket{
   PacketType type = PacketType::Init;
 
-  float motorKV = 0.0f;
-  float motorR = 0.0f;
-  float motorI0 = 0.0f;
+  float motorKV[4] = {};
+  float motorR[4] = {};
+  float motorI0[4] = {};
 
   float propMaxRpm = 0.0f;
   float propAFactor = 0.0f;
@@ -74,10 +74,7 @@ struct StatePacket{
   Vec3F linearVelocity {};
 
   // length is amplitude per axis
-  Vec3F motor1Imbalance {};
-  Vec3F motor2Imbalance {};
-  Vec3F motor3Imbalance {};
-  Vec3F motor4Imbalance {};
+  Vec3F motorImbalance[4] {};
 
   float gyroBaseNoiseAmp = 0.0f;
   float gyrobaseNoiseFreq = 0.0f;
@@ -89,6 +86,7 @@ struct StatePacket{
   float frameHarmonic2Freq = 0.0f;
 
   float propDamage[4] {};
+  float groundEffect[4] {};
 
   float vbat = 0.0f;
 
