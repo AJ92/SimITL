@@ -8,7 +8,9 @@
 #include "vector_math.h"
 #include "packets.h"
 
-#include "low_pass_filter.h"
+#include "LowPassFilter.h"
+#include "LerpFilter.h"
+#include "SimplexNoise.h"
 
 #include <array>
 #include <cstdint>
@@ -105,6 +107,8 @@ private:
   LowPassFilter gyroLowPassFilterY{};
   LowPassFilter gyroLowPassFilterZ{};
 
+  LowPassFilter motorPwmLowPassFilter[4] = {};
+
   //current battery voltage
   float batVoltage    = 0.0f; // in V
   float batVoltageSag = 0.0f; // in V but saged
@@ -137,7 +141,7 @@ private:
   // protected for testing
 protected:
 
-  void set_gyro(const StatePacket& state, const vmath::vec3& acceleration, const vmath::vec3& noise);
+  void set_gyro(const double dt, const StatePacket& state, const vmath::vec3& acceleration, const vmath::vec3& noise);
 
   float calculate_motors(double dt,
                          StatePacket& state,

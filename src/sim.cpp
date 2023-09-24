@@ -109,7 +109,8 @@ const auto AIR_RHO = 1.225f;
 const auto FREQUENCY = 20e3;//40e3;
 const auto DELTA = 1e6 / FREQUENCY;
 
-void Sim::set_gyro(const StatePacket& state,
+void Sim::set_gyro(const double dt,
+                   const StatePacket& state,
                    const vmath::vec3& acceleration, 
                    const vmath::vec3& noise
 ) {
@@ -121,6 +122,12 @@ void Sim::set_gyro(const StatePacket& state,
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
     angularVelocity = angularVelocity + noise;
+
+    constexpr float cutoffFreq = 330.0f;
+    angularVelocity[0] = gyroLowPassFilterX.update(angularVelocity[0], dt, cutoffFreq);
+    angularVelocity[1] = gyroLowPassFilterY.update(angularVelocity[1], dt, cutoffFreq);
+    angularVelocity[2] = gyroLowPassFilterZ.update(angularVelocity[2], dt, cutoffFreq);
+
     vec3 gyro = xform_inv(basis, angularVelocity);
 
     vec3 accelerometer =
@@ -211,8 +218,8 @@ float Sim::prop_thrust(float rpm, float vel) {
     const auto prop_a = initPacket.propAFactor;
     propF = std::max(0.0f, propF);
 
-    // thrust vs rpm (and max thrust)
-    const auto b = (propF - prop_a * max_rpm * max_rpm) / max_rpm;
+    // thrust vs rpm (and max thrust) 
+    const auto b = (propF - prop_a * max_rpm * max_rpm ) / max_rpm;
     const auto result = b * rpm + prop_a * rpm * rpm;
 
     return std::max(result, 0.0f);
@@ -237,14 +244,21 @@ float Sim::calculate_motors(double dt,
     copy(rotation, state.rotation);
     const auto up = get_axis(rotation, 1);
 
-    for (int i = 0; i < 4; i++) {
-        float propHealthFactor = (1.0f - state.propDamage[i]);
-        float groundEffect = 1.0f + ((state.groundEffect[i] * state.groundEffect[i]) * 0.5f);
+    vec3 linVel;
+    copy(linVel, state.linearVelocity);
+    const auto vel = std::max(0.0f, dot(linVel, up));
 
-        // const auto r = xform(state.rotation.value, motors[i].position);
-        vec3 linVel;
-        copy(linVel, state.linearVelocity);
-        const auto vel = std::max(0.0f, dot(linVel, up));
+    for (int i = 0; i < 4; i++) {
+        // 1.0 - effect
+        float propHealthFactor = (1.0f - state.propDamage[i]);
+        // 1.0 + effect
+        float groundEffect = 1.0f + ((state.groundEffect[i] * state.groundEffect[i]) * 0.7f);
+        
+        // positive value depending on how much thrust is given against actual movement direction of quad
+        float reverseThrust = std::max(0.0f, dot(linVel, motors[i].thrust * up) * -1.0f);
+        reverseThrust = std::max(0.0f, reverseThrust - 0.5f);
+        // 1.0 - effect
+        float propwashEffect = 1.0f - (SimplexNoise::noise(reverseThrust * reverseThrust * reverseThrust * 0.002f) * reverseThrust * 0.02f);
 
         auto rpm = motors[i].rpm;
         const auto kV = initPacket.motorKV[i];
@@ -258,24 +272,27 @@ float Sim::calculate_motors(double dt,
         //prevents remaining low rpm during disarm
         const auto initalCurrentThres = I0 * armed;
 
-        const auto volts = bf::motorsPwm[i] / 1000.0f * vbat;
+        const auto volts = motorPwmLowPassFilter[i].update(bf::motorsPwm[i], dt, 120.0f) / 1000.0f * vbat;
         const auto torque = motor_torque(volts, rpm, kV, R, initalCurrentThres);
         const auto ptorque = prop_torque(rpm, vel) * propHealthFactor;
         const auto net_torque = torque - ptorque;
-        if(i == 0){
-          BF_DEBUG_SET(bf::DEBUG_SIM, 0, groundEffect * 10000.0f);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 2, net_torque * 30000.0f);
-        }
-
+      
         const auto domega = net_torque / initPacket.propInertia;
         const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
 
         const auto maxdrpm = fabsf(volts * kV - rpm);
         rpm += clamp(drpm, -maxdrpm, maxdrpm);
 
-        motors[i].thrust = prop_thrust(rpm, vel) * propHealthFactor * groundEffect;
+        motors[i].thrust = prop_thrust(rpm, vel) * propHealthFactor * groundEffect * propwashEffect;
         motors[i].rpm = rpm;
         resPropTorque += motor_dir[i] * torque;
+
+        if(i == 0){
+          BF_DEBUG_SET(bf::DEBUG_SIM, 0, bf::motorsPwm[i]);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 1, reverseThrust * 100.0f);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 2, vel * 100.0f);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 2, propwashEffect * 100.0f);
+        }
     }
 
     return resPropTorque;
@@ -445,8 +462,7 @@ vmath::vec3 Sim::calculate_physics(
     copy(frameDragArea, initPacket.frameDragArea);
     float area = dot(frameDragArea, abs(local_dir));
 
-    // 0.85 was 0.5, but 85 feels more like a 3"
-    total_force = total_force - dir * 1.0f * AIR_RHO * vel2 *
+    total_force = total_force - dir * 0.5f * AIR_RHO * vel2 *
                                   initPacket.frameDragConstant * area;
 
     // motors:
@@ -885,12 +901,8 @@ bool Sim::step() {
     updateGyroNoise(statePacket, gyroNoise);
     updateMotorNoise(dt, statePacket, motorNoise);
     combinedGyroNoise = gyroNoise + motorNoise;
-    constexpr float cutoffFreq = 140.0f;
-    combinedGyroNoise[0] = gyroLowPassFilterX.update(combinedGyroNoise[0], static_cast<float>(dt*10.0f), cutoffFreq);
-    combinedGyroNoise[1] = gyroLowPassFilterY.update(combinedGyroNoise[1], static_cast<float>(dt*10.0f), cutoffFreq);
-    combinedGyroNoise[2] = gyroLowPassFilterZ.update(combinedGyroNoise[2], static_cast<float>(dt*10.0f), cutoffFreq);
 
-    set_gyro(statePacket, acceleration, combinedGyroNoise);
+    set_gyro(dt, statePacket, acceleration, combinedGyroNoise);
 
     if (sleep_timer > 0) {
       sleep_timer -= DELTA;

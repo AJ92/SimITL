@@ -28,6 +28,7 @@ add_subdirectory(extern/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(extern/)
 
 set(SOURCE_FILES
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/SimplexNoise.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.cpp
 )
 
