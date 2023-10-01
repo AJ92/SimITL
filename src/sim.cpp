@@ -101,7 +101,7 @@ const static auto GYRO_SCALE = 16.4f;
 const static auto RAD2DEG = (180.0f / float(M_PI));
 const static auto ACC_SCALE = (256 / 9.80665f);
 
-const static auto OSD_UPDATE_TIME = 1e6 / 30;
+const static auto OSD_UPDATE_TIME = 1e6 / 10;
 
 const auto AIR_RHO = 1.225f;
 
@@ -218,9 +218,12 @@ float Sim::prop_thrust(float rpm, float vel) {
     const auto prop_a = initPacket.propAFactor;
     propF = std::max(0.0f, propF);
 
+    //compensate low rpm thrust
+    const float rpmAdjusted = std::max(rpm - 1800.0f, 0.0f);
+
     // thrust vs rpm (and max thrust) 
     const auto b = (propF - prop_a * max_rpm * max_rpm ) / max_rpm;
-    const auto result = b * rpm + prop_a * rpm * rpm;
+    const auto result = b * rpmAdjusted + prop_a * rpmAdjusted * rpmAdjusted;
 
     return std::max(result, 0.0f);
 }
@@ -256,9 +259,9 @@ float Sim::calculate_motors(double dt,
         
         // positive value depending on how much thrust is given against actual movement direction of quad
         float reverseThrust = std::max(0.0f, dot(linVel, motors[i].thrust * up) * -1.0f);
-        reverseThrust = std::max(0.0f, reverseThrust - 0.5f);
+        reverseThrust = std::max(0.0f, reverseThrust - 0.4f);
         // 1.0 - effect
-        float propwashEffect = 1.0f - (SimplexNoise::noise(reverseThrust * reverseThrust * reverseThrust * 0.002f) * reverseThrust * 0.02f);
+        float propwashEffect = 1.0f - (SimplexNoise::noise(reverseThrust * reverseThrust * 0.002f) * reverseThrust * 0.01f);
 
         auto rpm = motors[i].rpm;
         const auto kV = initPacket.motorKV[i];
@@ -289,9 +292,8 @@ float Sim::calculate_motors(double dt,
 
         if(i == 0){
           BF_DEBUG_SET(bf::DEBUG_SIM, 0, bf::motorsPwm[i]);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 1, reverseThrust * 100.0f);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 2, vel * 100.0f);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 2, propwashEffect * 100.0f);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 1, rpm * 0.1f);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 2, motors[i].thrust * 1000);
         }
     }
 
@@ -300,15 +302,15 @@ float Sim::calculate_motors(double dt,
 
 void Sim::updateBat(double dt) {
   if(batVoltage > (3.5f * initPacket.quadBatCellCount)){
-    batVoltage = initPacket.quadBatVoltage - 
-      ((0.7 * initPacket.quadBatCellCount) * 
-      (1.0 - (batCapacity / initPacket.quadBatCapacity)));
+    batVoltage = initPacket.quadBatVoltage 
+      - ((0.7 * initPacket.quadBatCellCount) 
+      * (1.0 - (batCapacity / initPacket.quadBatCapacity)));
   }
   else{
     batVoltage -= 0.5f * dt;
   }
 
-  batVoltage = std::max(batVoltage, 0.0f);
+  batVoltage = std::max(batVoltage, 0.1f);
 
   bf::setCellCount(initPacket.quadBatCellCount);
   bf::voltageMeter_t* vMeter = bf::getVoltageMeter();
@@ -318,7 +320,8 @@ void Sim::updateBat(double dt) {
     rpmSum += motorsState[i].rpm;
   }
   
-  float vSag = 0.3 * (rpmSum / initPacket.propMaxRpm);
+  const float powerFactor = ((rpmSum / initPacket.propMaxRpm) / 4.0f);
+  float vSag = 1.75f * powerFactor;
 
   batVoltageSag = batVoltage - vSag;
 
@@ -326,8 +329,12 @@ void Sim::updateBat(double dt) {
   vMeter->displayFiltered = batVoltageSag * 1e2;
   vMeter->sagFiltered     = batVoltage    * 1e2;
 
-  batCapacity -= (rpmSum / initPacket.propMaxRpm) * 800.0f * (1.0f / batCapacity) * dt;
-  batCapacity = std::max(batCapacity, 0.0f);
+  float currentmAs = powerFactor * 9.0f;
+  currentmAs = std::max(currentmAs, 0.075f);
+
+  batCapacity -= currentmAs * dt;
+  // negative cappa allows to drop voltage below 3.5V
+  //batCapacity = std::max(batCapacity, 0.1f);
 }
 
 // -1.0 , 1.0
