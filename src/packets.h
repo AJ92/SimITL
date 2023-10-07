@@ -57,8 +57,10 @@ struct InitPacket{
   float quadMass = 0.0f;
   Vec3F quadInvInertia {};
   float quadBatVoltage = 0.0f;
+  float maxVoltageSag = 0.0f;
   uint8_t quadBatCellCount = 1;
   float quadBatCapacity = 0.0f;
+  float maxAmpDraw = 0.0f;
   Vec3F quadMotorPos[4] {};
 };
 

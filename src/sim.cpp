@@ -101,7 +101,7 @@ const static auto GYRO_SCALE = 16.4f;
 const static auto RAD2DEG = (180.0f / float(M_PI));
 const static auto ACC_SCALE = (256 / 9.80665f);
 
-const static auto OSD_UPDATE_TIME = 1e6 / 10;
+const static auto OSD_UPDATE_TIME = 1e6 / 5;
 
 const auto AIR_RHO = 1.225f;
 
@@ -218,12 +218,9 @@ float Sim::prop_thrust(float rpm, float vel) {
     const auto prop_a = initPacket.propAFactor;
     propF = std::max(0.0f, propF);
 
-    //compensate low rpm thrust
-    const float rpmAdjusted = std::max(rpm - 1800.0f, 0.0f);
-
     // thrust vs rpm (and max thrust) 
     const auto b = (propF - prop_a * max_rpm * max_rpm ) / max_rpm;
-    const auto result = b * rpmAdjusted + prop_a * rpmAdjusted * rpmAdjusted;
+    const auto result = b * rpm + prop_a * rpm * rpm;
 
     return std::max(result, 0.0f);
 }
@@ -321,7 +318,7 @@ void Sim::updateBat(double dt) {
   }
   
   const float powerFactor = ((rpmSum / initPacket.propMaxRpm) / 4.0f);
-  float vSag = 1.75f * powerFactor;
+  float vSag = initPacket.maxVoltageSag * powerFactor;
 
   batVoltageSag = batVoltage - vSag;
 
@@ -329,7 +326,7 @@ void Sim::updateBat(double dt) {
   vMeter->displayFiltered = batVoltageSag * 1e2;
   vMeter->sagFiltered     = batVoltage    * 1e2;
 
-  float currentmAs = powerFactor * 9.0f;
+  float currentmAs = powerFactor * powerFactor * initPacket.maxAmpDraw;
   currentmAs = std::max(currentmAs, 0.075f);
 
   batCapacity -= currentmAs * dt;
