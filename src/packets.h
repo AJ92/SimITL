@@ -37,6 +37,20 @@ struct Vec3F{
   float z = 0.0f;
 };
 
+struct Vec4F{
+  float x = 1.0f;
+  float y = 0.0f;
+  float z = 0.0f;
+  float w = 1.0f;
+};
+
+struct GpsData{
+  // 48.420876993590745, 10.711263681338096
+  int32_t lat = 484208769;
+  int32_t lon = 107112636;
+  int32_t alt = 0;
+};
+
 // initial quad settings.
 struct InitPacket{
   PacketType type = PacketType::Init;
@@ -62,6 +76,8 @@ struct InitPacket{
   float quadBatCapacity = 0.0f;
   float maxAmpDraw = 0.0f;
   Vec3F quadMotorPos[4] {};
+
+  GpsData gps {};
 };
 
 //runtime quad parameters.
@@ -93,7 +109,7 @@ struct StatePacket{
   float vbat = 0.0f;
 
   // 1 true 0 false
-  uint8_t crashed = 0;
+  uint8_t contact = 0;
 
   // combination of CommandType (bitmask)
   int32_t commands = 0;
@@ -102,6 +118,7 @@ struct StatePacket{
 struct StateUpdatePacket{
   PacketType type = PacketType::StateUpdate;
 
+  Vec4F orientation{};
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
 
@@ -110,11 +127,6 @@ struct StateUpdatePacket{
 
 struct StateOsdUpdatePacket{
   PacketType type = PacketType::StateOsdUpdate;
-
-  Vec3F angularVelocity {};
-  Vec3F linearVelocity {};
-
-  float motorRpm[4] {};
 
   uint8_t osd[16*30] {};
 };

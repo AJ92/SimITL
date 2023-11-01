@@ -488,6 +488,7 @@ FAST_CODE void scheduler(void)
             if (schedLoopStartCycles > schedLoopStartMinCycles) {
                 schedLoopStartCycles -= schedLoopStartDeltaDownCycles;
             }
+//TODO: check if correct...
 /*
 #if !defined(UNIT_TEST) && !defined(SIMULATOR_MULTITHREAD)
             while (schedLoopRemainingCycles > 0) {

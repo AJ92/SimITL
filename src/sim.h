@@ -90,9 +90,13 @@ private:
   // state update from rendering side
   std::queue<StatePacket> receivedStatePacketQueue {};
 
-  // updates for rendering side
+  // update queues for rendering side
   std::queue<StateUpdatePacket> sendStateUpdatePacketQueue {};
   std::queue<StateOsdUpdatePacket> sendStateOsdUpdatePacketQueue {};
+
+  // state updates which can be send back
+  StateUpdatePacket stateUpdate = {};
+  StateOsdUpdatePacket osdUpdate = {};
 
   std::mutex rcMutex;
   uint16_t rc_data[16] {};
@@ -100,7 +104,6 @@ private:
 
   uint64_t total_delta = 0;
 
-  uint64_t last_osd_time = 0;
   vmath::vec3 acceleration = {0, 0, 0};
 
   LowPassFilter gyroLowPassFilterX{};
@@ -131,6 +134,8 @@ private:
   vmath::vec2 motorNoise(const double dt, MotorState& motorState);
   void updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise);
   void updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise);
+
+  bool simStep();
 
   // dyad init called?
   bool networkingInitialized = false;

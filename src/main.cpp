@@ -48,8 +48,7 @@ int main() {
         clearline();
         fmt::print("dt: {:5.5f}, Sl/s: {:8.1f}, sch/s: {:8.1f}, avgST: {}, krpm: {:5.2f} {:5.2f} {:5.2f} {:5.2f}, dis: {}",
           delta / 1e6,
-          (float)sim->simSteps -
-          (float)sim->bfSchedules,
+          (float)sim->simSteps - (float)sim->bfSchedules,
           (float)sim->bfSchedules,
           sim->avgStepTime,
           sim->motorsState[0].rpm / 1e3,

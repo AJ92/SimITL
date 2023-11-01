@@ -36,8 +36,8 @@ add_library(libsim OBJECT ${BETAFLIGHT_SOURCES} ${SOURCE_FILES})
 target_compile_features(libsim PUBLIC cxx_std_17)
 
 target_compile_definitions(libsim PUBLIC "SITL")
-target_compile_definitions(libsim PUBLIC "__TARGET__=\"SITL\"")
-target_compile_definitions(libsim PUBLIC "__REVISION__=\"0.0.1\"")
+target_compile_definitions(libsim PUBLIC "__TARGET__=\"SIMFLIGHT\"")
+target_compile_definitions(libsim PUBLIC "__REVISION__=\"1\"")
 
 target_compile_definitions(libsim PUBLIC SIMULATOR_BUILD)
 target_compile_definitions(libsim PUBLIC "HSE_VALUE=8000000")

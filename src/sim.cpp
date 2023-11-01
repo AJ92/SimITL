@@ -101,12 +101,10 @@ const static auto GYRO_SCALE = 16.4f;
 const static auto RAD2DEG = (180.0f / float(M_PI));
 const static auto ACC_SCALE = (256 / 9.80665f);
 
-const static auto OSD_UPDATE_TIME = 1e6 / 5;
-
 const auto AIR_RHO = 1.225f;
 
 // 20kHz scheduler, is enough to run PID at 8khz
-const auto FREQUENCY = 20e3;//40e3;
+const auto FREQUENCY = 8e3;//20e3;
 const auto DELTA = 1e6 / FREQUENCY;
 
 void Sim::set_gyro(const double dt,
@@ -130,23 +128,26 @@ void Sim::set_gyro(const double dt,
 
     vec3 gyro = xform_inv(basis, angularVelocity);
 
+    //todo: fix acceleration for fake acc ( else part of ifdef enables acc in black box explorer )
+    auto gravity_force = vec3{0, -9.81f * initPacket.quadMass, 0};
     vec3 accelerometer =
-      xform_inv(basis, acceleration) / initPacket.quadMass;
+      xform_inv(basis, acceleration - gravity_force) / initPacket.quadMass;
+  
 
     int16_t x, y, z;
     if (bf::sensors(bf::SENSOR_ACC)) {
-#ifdef USE_QUAT_ORIENTATION
-        bf::imuSetAttitudeQuat(
-          rotation[3], -rotation[2], -rotation[0], rotation[1]);
-#else
+//#ifdef USE_QUAT_ORIENTATION
+        bf::imuSetAttitudeQuat(rotation[3], -rotation[2], -rotation[0], rotation[1]);
+
+//#else
         x = int16_t(
           bf::constrain(int(-accelerometer[2] * ACC_SCALE), -32767, 32767));
         y = int16_t(
           bf::constrain(int(accelerometer[0] * ACC_SCALE), -32767, 32767));
         z = int16_t(
-          bf::constrain(int(-accelerometer[1] * ACC_SCALE), -32767, 32767));
+          bf::constrain(int(accelerometer[1] * ACC_SCALE), -32767, 32767));
         bf::fakeAccSet(bf::fakeAccDev, x, y, z);
-#endif
+//#endif
     }
 
     x = int16_t(
@@ -166,26 +167,25 @@ void Sim::set_gyro(const double dt,
     static int64_t last_millis = 0;
     int64_t millis = micros_passed / 1000;
 
-    if (millis - last_millis > 100) {
-
+    //if (millis - last_millis > 100) {
+    {
         vec3 pos;
         copy(pos, state.position);
-
 
         bf::EnableState(bf::GPS_FIX);
         bf::gpsSol.numSat = 10;
         bf::gpsSol.llh.lat =
           int32_t(
-            -pos[2] * 100 /
+            pos[2] * 100 /
             DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS) +
-          508445910;
+          initPacket.gps.lat;
         bf::gpsSol.llh.lon =
           int32_t(
             pos[0] * 100 /
             (cosLon0 *
              DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS)) +
-          43551050;
-        bf::gpsSol.llh.altCm = int32_t(pos[1] * 100);
+          initPacket.gps.lon;
+        bf::gpsSol.llh.altCm = int32_t(pos[1] * 100) + initPacket.gps.alt;
         vec3 linearVelocity;
         copy(linearVelocity, state.linearVelocity);
         bf::gpsSol.groundSpeed =
@@ -248,6 +248,10 @@ float Sim::calculate_motors(double dt,
     copy(linVel, state.linearVelocity);
     const auto vel = std::max(0.0f, dot(linVel, up));
 
+    constexpr float maxEffectSpeed = 15.0f; // m/s
+    const float speed = std::abs(length(linVel)); // m/s
+    float speedFactor = std::min(speed / maxEffectSpeed, 1.0f);
+
     for (int i = 0; i < 4; i++) {
         // 1.0 - effect
         float propHealthFactor = (1.0f - state.propDamage[i]);
@@ -255,10 +259,16 @@ float Sim::calculate_motors(double dt,
         float groundEffect = 1.0f + ((state.groundEffect[i] * state.groundEffect[i]) * 0.7f);
         
         // positive value depending on how much thrust is given against actual movement direction of quad
-        float reverseThrust = std::max(0.0f, dot(linVel, motors[i].thrust * up) * -1.0f);
-        reverseThrust = std::max(0.0f, reverseThrust - 0.4f);
+        float reverseThrust = std::max(0.0f, dot(normalize(linVel), normalize(motors[i].thrust * up) * -1.0f));
+        // keep between 0.0 and 1.0, takes 25% that point the most against movement direction
+        reverseThrust = std::max(0.0f, reverseThrust - 0.75f) * 4.0f;
+        reverseThrust = reverseThrust * reverseThrust;
+        float propWashNoise = std::max(0.0f, 0.5f * (SimplexNoise::noise(reverseThrust * speed * motors[i].thrust) + 1.0f));
+
+
+
         // 1.0 - effect
-        float propwashEffect = 1.0f - (SimplexNoise::noise(reverseThrust * reverseThrust * 0.002f) * reverseThrust * 0.01f);
+        float propwashEffect = 1.0f - (propWashNoise * reverseThrust * 0.75f) * speedFactor;
 
         auto rpm = motors[i].rpm;
         const auto kV = initPacket.motorKV[i];
@@ -288,9 +298,10 @@ float Sim::calculate_motors(double dt,
         resPropTorque += motor_dir[i] * torque;
 
         if(i == 0){
-          BF_DEBUG_SET(bf::DEBUG_SIM, 0, bf::motorsPwm[i]);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 1, rpm * 0.1f);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 2, motors[i].thrust * 1000);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 0, reverseThrust * 1000);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 1, speedFactor * 1000);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 2, propwashEffect * 1000);
+          BF_DEBUG_SET(bf::DEBUG_SIM, 3, motors[i].thrust * 1000);
         }
     }
 
@@ -317,8 +328,8 @@ void Sim::updateBat(double dt) {
     rpmSum += motorsState[i].rpm;
   }
   
-  const float powerFactor = ((rpmSum / initPacket.propMaxRpm) / 4.0f);
-  float vSag = initPacket.maxVoltageSag * powerFactor;
+  const float powerFactor = std::max(0.0f, std::min(1.0f, ((rpmSum / initPacket.propMaxRpm) / 4.0f)));
+  float vSag = initPacket.maxVoltageSag * powerFactor * powerFactor;
 
   batVoltageSag = batVoltage - vSag;
 
@@ -530,9 +541,9 @@ void Sim::set_rc_data(float data[8], uint32_t timeUs) {
 }
 
 Sim::Sim()
-  : recv_state_socket(kissnet::endpoint("localhost", 7777))
-  , recv_rcdat_socket(kissnet::endpoint("localhost", 7778))
-  , send_state_socket(kissnet::endpoint("localhost", 6666)) 
+  : recv_state_socket(kissnet::endpoint("localhost", 30713))
+  , recv_rcdat_socket(kissnet::endpoint("localhost", 30714))
+  , send_state_socket(kissnet::endpoint("localhost", 30715)) 
 {
 #ifdef _WIN32
   u_long opt = 1;
@@ -729,7 +740,7 @@ bool Sim::step() {
   dyad_update();
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
-  if(receivedStatePacketQueue.size() > 0){
+  while(receivedStatePacketQueue.size() > 0){
 
     //calculate time diff
     const auto now = hr_clock::now();
@@ -738,7 +749,7 @@ bool Sim::step() {
     int64_t stepTimeUS = to_us(stepTime);
 
     lastStepTime = now;
-    stepTimeUS = std::min(stepTimeUS, static_cast<int64_t>(32000));
+    stepTimeUS = std::min(stepTimeUS, static_cast<int64_t>(100000));
 
     stepCount++;
     stepTimeSum += stepTimeUS;
@@ -753,8 +764,8 @@ bool Sim::step() {
 
     int64_t stateUpdateDelta = static_cast<int64_t>(statePacketUpdate.delta * 1000000.0);
 
-    if(stateUpdateDelta > static_cast<int64_t>(32000)){
-      stateUpdateDelta = static_cast<int64_t>(32000);
+    if(stateUpdateDelta > static_cast<int64_t>(100000)){
+      stateUpdateDelta = static_cast<int64_t>(100000);
     }
     if(stateUpdateDelta < static_cast<int64_t>(0)){
       stateUpdateDelta = static_cast<int64_t>(1000);
@@ -778,17 +789,18 @@ bool Sim::step() {
 
     vec3 angularVelocityDiff = newAngularVelocity - currentAngularVelocity;
 
-    //BF_DEBUG_SET(bf::DEBUG_SIM, 0, static_cast<int16_t>(angularVelocityDiff[0] * 30000.0f));
-    //BF_DEBUG_SET(bf::DEBUG_SIM, 1, static_cast<int16_t>(angularVelocityDiff[1] * 30000.0f));
-    //BF_DEBUG_SET(bf::DEBUG_SIM, 2, static_cast<int16_t>(angularVelocityDiff[2] * 30000.0f));
-    //BF_DEBUG_SET(bf::DEBUG_SIM, 3, static_cast<int16_t>(stateUpdateDelta));
+    //BF_DEBUG_SET(bf::DEBUG_SIM, 0, static_cast<int16_t>(angularVelocityDiff[0] * 1000.0f));
+    //BF_DEBUG_SET(bf::DEBUG_SIM, 1, static_cast<int16_t>(angularVelocityDiff[1] * 1000.0f));
+    //BF_DEBUG_SET(bf::DEBUG_SIM, 2, static_cast<int16_t>(angularVelocityDiff[2] * 1000.0f));
+    //BF_DEBUG_SET(bf::DEBUG_SIM, 3, static_cast<int16_t>(statePacketUpdate.delta * 1000.0f));
 
-    float i_angular = 0.05f;
+    float i_angular = (statePacketUpdate.contact == 1) ? 0.5f : 0.0f;
     //linear interpolation, strength defined by diff between states
-    vec3 angularVelocitySmoothed = currentAngularVelocity + angularVelocityDiff * clamp(abs(angularVelocityDiff) * i_angular, 0.0f, 0.75f);
+    vec3 angularVelocityMixed = currentAngularVelocity + angularVelocityDiff * i_angular;
 
     // update state
-    copy(statePacket.angularVelocity, angularVelocitySmoothed);
+    copy(statePacket.angularVelocity, angularVelocityMixed);
+
 
     //linear velocity update
     vec3 currentLinearVelocity;
@@ -799,11 +811,12 @@ bool Sim::step() {
 
     vec3 linearVelocityDiff = newLinearVelocity - currentLinearVelocity;
 
-    float i_linear = 0.05f;
-    //linear interpolation, strength defined by diff between states
-    vec3 linearVelocitySmoothed = currentLinearVelocity + linearVelocityDiff * clamp(abs(linearVelocityDiff) * i_linear, 0.0f, 0.75f);
+    float i_linear = (statePacketUpdate.contact == 1) ? 0.35f : 0.0f;
 
-    copy(statePacket.linearVelocity, linearVelocitySmoothed);
+    //linear interpolation, strength defined by diff between states
+    vec3 linearVelocityMixed = currentLinearVelocity + linearVelocityDiff * i_linear;
+
+    copy(statePacket.linearVelocity, linearVelocityMixed);
 
     statePacket.vbat            = statePacketUpdate.vbat;
 
@@ -831,67 +844,54 @@ bool Sim::step() {
     statePacket.groundEffect[2] = statePacketUpdate.groundEffect[2];
     statePacket.groundEffect[3] = statePacketUpdate.groundEffect[3];
 
+    statePacket.position = statePacketUpdate.position;
+
 
     memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
   
     receivedStatePacketQueue.pop();
+
+
+
+    armingDisabledFlags = (int)bf::getArmingDisableFlags();
+
+    //rc data is updated independently
+
+    simStep();
+
+    stateUpdate.angularVelocity = statePacket.angularVelocity;
+    stateUpdate.linearVelocity = statePacket.linearVelocity;
+    stateUpdate.motorRpm[0] = motorsState[0].rpm;
+    stateUpdate.motorRpm[1] = motorsState[1].rpm;
+    stateUpdate.motorRpm[2] = motorsState[2].rpm;
+    stateUpdate.motorRpm[3] = motorsState[3].rpm;
+
+    sendStateUpdatePacketQueue.push(stateUpdate);
+
 
     //copy osd and check of change
     bool osdChanged = false;
     for (int y = 0; y < VIDEO_LINES; y++) {
       for (int x = 0; x < CHARS_PER_LINE; x++) {
         //TODO: access to osdScreen has to be guarded
-        if(osd[y * CHARS_PER_LINE + x] != bf::osdScreen[y][x]){
+        if(osdUpdate.osd[y * CHARS_PER_LINE + x] != bf::osdScreen[y][x]){
           osdChanged = true;
         }
-        osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
+        osdUpdate.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
       }
     }
 
     //prepare update
-    //if (micros_passed - last_osd_time > OSD_UPDATE_TIME) {
-    if (osdChanged || (micros_passed - last_osd_time > OSD_UPDATE_TIME)) {
-      last_osd_time = micros_passed;
-      StateOsdUpdatePacket update;
-
-      update.angularVelocity = statePacket.angularVelocity;
-      update.linearVelocity = statePacket.linearVelocity;
-      update.motorRpm[0] = motorsState[0].rpm;
-      update.motorRpm[1] = motorsState[1].rpm;
-      update.motorRpm[2] = motorsState[2].rpm;
-      update.motorRpm[3] = motorsState[3].rpm;
-      for (int y = 0; y < VIDEO_LINES; y++) {
-        for (int x = 0; x < CHARS_PER_LINE; x++) {
-          //TODO: access to osdScreen has to be guarded
-          update.osd[y * CHARS_PER_LINE + x] = bf::osdScreen[y][x];
-        }
-      }
-
-      sendStateOsdUpdatePacketQueue.push(update);
-      
-    } else {
-      StateUpdatePacket update;
-
-      update.angularVelocity = statePacket.angularVelocity;
-      update.linearVelocity = statePacket.linearVelocity;
-      update.motorRpm[0] = motorsState[0].rpm;
-      update.motorRpm[1] = motorsState[1].rpm;
-      update.motorRpm[2] = motorsState[2].rpm;
-      update.motorRpm[3] = motorsState[3].rpm;
-      
-      sendStateUpdatePacketQueue.push(update);
-    }
-
-
-  }
-  else{
-    // no new data received
-    return true;
+    if (osdChanged) {
+      sendStateOsdUpdatePacketQueue.push(osdUpdate);
+    } 
   }
 
-  armingDisabledFlags = (int)bf::getArmingDisableFlags();
+  return running;
+}
 
-  //rc data is updated independently
+bool Sim::simStep() {
+  using namespace vmath;
 
   vec3 gyroNoise;
   vec3 motorNoise;
@@ -918,15 +918,13 @@ bool Sim::step() {
 
     simSteps++;
 
-    if (statePacket.crashed > 0) continue;
-
     float motorsTorque = calculate_motors(dt, statePacket, motorsState);
     acceleration = calculate_physics(dt, statePacket, motorsState, motorsTorque);
 
     updateBat(dt);
   }
 
-  return running;
+  return true;
 }
 
 void Sim::stop(){
