@@ -22,6 +22,8 @@ if (GEN_COVERAGE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fprofile-arcs -ftest-coverage")
 endif ()
 
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+
 add_subdirectory(extern/fmt EXCLUDE_FROM_ALL)
 
 # Get betaflight sources:

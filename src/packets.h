@@ -26,8 +26,8 @@ enum PacketType : int32_t {
 enum CommandType : int32_t {
   None      = 0U,
   Stop      = 1U,
-  Repair = 2U,
-  Reserved2 = 4U,
+  Repair    = 2U,
+  Reset     = 4U,
   Reserved3 = 8U,
 };
 
@@ -78,6 +78,9 @@ struct InitPacket{
   Vec3F quadMotorPos[4] {};
 
   GpsData gps {};
+
+  //eeprom file name
+  uint8_t eepromName[32] = {};
 };
 
 //runtime quad parameters.

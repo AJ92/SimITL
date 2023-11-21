@@ -56,7 +56,11 @@
 //#define SIMULATOR_GYROPID_SYNC
 
 // file name to save config
-#define EEPROM_FILENAME "eeprom.bin"
+//#define EEPROM_FILENAME "eeprom.bin"
+
+// set by sim.cpp depending on initial state packet
+extern char* EEPROM_FILENAME;
+
 #define CONFIG_IN_FILE
 #define EEPROM_SIZE     32768
 

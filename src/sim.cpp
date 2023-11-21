@@ -63,6 +63,14 @@ namespace bf {
         return bf::RX_FRAME_COMPLETE;
     }
 
+    char * EEPROM_FILENAME = 0;
+
+    static void setEepromFileName(const char* filename = "eeprom.bin"){
+      const size_t maxFileSize = 32;
+      EEPROM_FILENAME = new char[maxFileSize];
+      memcpy(EEPROM_FILENAME, filename, strnlen(filename, maxFileSize));
+    }
+
     extern int16_t motorsPwm[MAX_SUPPORTED_MOTORS];
   }
 }  // namespace bf
@@ -122,16 +130,16 @@ void Sim::set_gyro(const double dt,
     angularVelocity = angularVelocity + noise;
 
     constexpr float cutoffFreq = 330.0f;
-    angularVelocity[0] = gyroLowPassFilterX.update(angularVelocity[0], dt, cutoffFreq);
-    angularVelocity[1] = gyroLowPassFilterY.update(angularVelocity[1], dt, cutoffFreq);
-    angularVelocity[2] = gyroLowPassFilterZ.update(angularVelocity[2], dt, cutoffFreq);
+    angularVelocity[0] = gyroLowPassFilter[0].update(angularVelocity[0], dt, cutoffFreq);
+    angularVelocity[1] = gyroLowPassFilter[1].update(angularVelocity[1], dt, cutoffFreq);
+    angularVelocity[2] = gyroLowPassFilter[2].update(angularVelocity[2], dt, cutoffFreq);
 
     vec3 gyro = xform_inv(basis, angularVelocity);
 
     //todo: fix acceleration for fake acc ( else part of ifdef enables acc in black box explorer )
     auto gravity_force = vec3{0, -9.81f * initPacket.quadMass, 0};
     vec3 accelerometer =
-      xform_inv(basis, acceleration - gravity_force) / initPacket.quadMass;
+      xform_inv(basis, acceleration - gravity_force) / std::max(initPacket.quadMass, 0.01f);
   
 
     int16_t x, y, z;
@@ -198,13 +206,13 @@ void Sim::set_gyro(const double dt,
 
 float Sim::motor_torque(float volts, float rpm, float kV, float R, float I0) {
     auto current =
-      (volts - rpm / kV) / R;
+      (volts - rpm / std::max(kV, 0.01f)) / std::max(R, 0.0f);
 
     if (current > 0)
         current = std::max(0.0f, current - I0);
     else if (current < 0)
         current = std::min(0.0f, current + I0);
-    return current * 60 / (kV * 2.0f * float(M_PI));
+    return current * 60 / (std::max(kV, 0.01f) * 2.0f * float(M_PI));
 }
 
 float Sim::prop_thrust(float rpm, float vel) {
@@ -214,7 +222,7 @@ float Sim::prop_thrust(float rpm, float vel) {
                  initPacket.propThrustFactor.y * vel +
                  initPacket.propThrustFactor.z;
 
-    const auto max_rpm = initPacket.propMaxRpm;
+    const auto max_rpm = std::max(initPacket.propMaxRpm, 0.01f);
     const auto prop_a = initPacket.propAFactor;
     propF = std::max(0.0f, propF);
 
@@ -287,7 +295,7 @@ float Sim::calculate_motors(double dt,
         const auto ptorque = prop_torque(rpm, vel) * propHealthFactor;
         const auto net_torque = torque - ptorque;
       
-        const auto domega = net_torque / initPacket.propInertia;
+        const auto domega = net_torque / std::max(initPacket.propInertia, 0.00000001f);
         const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
 
         const auto maxdrpm = fabsf(volts * kV - rpm);
@@ -312,7 +320,7 @@ void Sim::updateBat(double dt) {
   if(batVoltage > (3.5f * initPacket.quadBatCellCount)){
     batVoltage = initPacket.quadBatVoltage 
       - ((0.7 * initPacket.quadBatCellCount) 
-      * (1.0 - (batCapacity / initPacket.quadBatCapacity)));
+      * (1.0 - (batCapacity / std::max(initPacket.quadBatCapacity, 0.01f))));
   }
   else{
     batVoltage -= 0.5f * dt;
@@ -328,7 +336,7 @@ void Sim::updateBat(double dt) {
     rpmSum += motorsState[i].rpm;
   }
   
-  const float powerFactor = std::max(0.0f, std::min(1.0f, ((rpmSum / initPacket.propMaxRpm) / 4.0f)));
+  const float powerFactor = std::max(0.0f, std::min(1.0f, ((rpmSum / std::max(initPacket.propMaxRpm, 0.01f)) / 4.0f)));
   float vSag = initPacket.maxVoltageSag * powerFactor * powerFactor;
 
   batVoltageSag = batVoltage - vSag;
@@ -381,10 +389,10 @@ void Sim::updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise){
 void Sim::updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise){
   float maxV = initPacket.quadBatCellCount * 4.2;
 
-  float maxRpm1 = initPacket.motorKV[0] * maxV;
-  float maxRpm2 = initPacket.motorKV[1] * maxV;
-  float maxRpm3 = initPacket.motorKV[2] * maxV;
-  float maxRpm4 = initPacket.motorKV[3] * maxV;
+  float maxRpm1 = std::max(initPacket.motorKV[0] * maxV, 0.1f);
+  float maxRpm2 = std::max(initPacket.motorKV[1] * maxV, 0.1f);
+  float maxRpm3 = std::max(initPacket.motorKV[2] * maxV, 0.1f);
+  float maxRpm4 = std::max(initPacket.motorKV[3] * maxV, 0.1f);
 
   //float m1Hz = rpmToHz(motorsState[0].rpm);
   float rpmFactorM1 = std::max(0.0f, motorsState[0].rpm) / maxRpm1;
@@ -486,7 +494,7 @@ vmath::vec3 Sim::calculate_physics(
                       xform(rotation, vec3{0, motors[i].thrust, 0});
     }
 
-    acceleration = total_force / initPacket.quadMass;
+    acceleration = total_force / std::max(initPacket.quadMass, 0.001f);
 
     linearVelocity = linearVelocity + acceleration * dt;
     copy(state.linearVelocity, linearVelocity);
@@ -630,6 +638,8 @@ bool Sim::connect() {
   }
 
   fmt::print("Initializing betaflight\n");
+  initPacket.eepromName[31] = '\0';
+  bf::setEepromFileName((char *) initPacket.eepromName);
   bf::init();
 
   //bf::rescheduleTask(bf::TASK_RX, 1);
@@ -663,8 +673,7 @@ bool Sim::connect() {
 }
 
 bool Sim::udpStateUpdate(){
-
-  if(sendStateUpdatePacketQueue.size() > 0 || sendStateOsdUpdatePacketQueue.size() > 0){
+  while(sendStateUpdatePacketQueue.size() > 0 || sendStateOsdUpdatePacketQueue.size() > 0){
     std::lock_guard<std::mutex> guard(statePacketMutex);
 
     if (sendStateOsdUpdatePacketQueue.size() > 0) {
@@ -693,7 +702,9 @@ bool Sim::udpStateUpdate(){
   }
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
-  receivedStatePacketQueue.push(state);
+  if((receivedStatePacketQueue.size() < maxQueueSize)){
+    receivedStatePacketQueue.push(state);
+  }
 
   return true;
 }
@@ -755,7 +766,7 @@ bool Sim::step() {
     stepTimeSum += stepTimeUS;
 
     if((stepCount % 1000) == 0){
-      avgStepTime = stepTimeSum / stepCount;
+      avgStepTime = stepTimeSum / std::max(stepCount, static_cast<int64_t>(1));
       stepCount = 1;
       stepTimeSum = stepTimeUS;
     }
@@ -768,7 +779,7 @@ bool Sim::step() {
       stateUpdateDelta = static_cast<int64_t>(100000);
     }
     if(stateUpdateDelta < static_cast<int64_t>(0)){
-      stateUpdateDelta = static_cast<int64_t>(1000);
+      stateUpdateDelta = static_cast<int64_t>(1);
     }
     
     if((statePacketUpdate.commands & CommandType::Repair) == CommandType::Repair){
@@ -776,6 +787,12 @@ bool Sim::step() {
       batVoltage = initPacket.quadBatVoltage;
       batVoltageSag = batVoltage;
       batCapacity = initPacket.quadBatCapacity;
+    }
+
+    if((statePacketUpdate.commands & CommandType::Reset) == CommandType::Reset){
+      //reset physics
+      statePacket.linearVelocity = {0.0f, 0.0f, 0.0f};
+      statePacket.angularVelocity = {0.0f, 0.0f, 0.0f};
     }
 
     total_delta += static_cast<uint64_t>(stateUpdateDelta);
@@ -811,7 +828,7 @@ bool Sim::step() {
 
     vec3 linearVelocityDiff = newLinearVelocity - currentLinearVelocity;
 
-    float i_linear = (statePacketUpdate.contact == 1) ? 0.35f : 0.0f;
+    float i_linear = (statePacketUpdate.contact == 1) ? 0.5f : 0.0f;
 
     //linear interpolation, strength defined by diff between states
     vec3 linearVelocityMixed = currentLinearVelocity + linearVelocityDiff * i_linear;
@@ -866,7 +883,9 @@ bool Sim::step() {
     stateUpdate.motorRpm[2] = motorsState[2].rpm;
     stateUpdate.motorRpm[3] = motorsState[3].rpm;
 
-    sendStateUpdatePacketQueue.push(stateUpdate);
+    if(sendStateUpdatePacketQueue.size() < maxQueueSize){
+      sendStateUpdatePacketQueue.push(stateUpdate);
+    }
 
 
     //copy osd and check of change
@@ -882,7 +901,7 @@ bool Sim::step() {
     }
 
     //prepare update
-    if (osdChanged) {
+    if (osdChanged && (sendStateOsdUpdatePacketQueue.size() < maxQueueSize)) {
       sendStateOsdUpdatePacketQueue.push(osdUpdate);
     } 
   }
@@ -958,7 +977,7 @@ extern "C" {
       int ret;
 
       printf("[system] Init...\n");
-
+      
       bf::SystemCoreClock = 500 * 1000000;  // fake 500MHz
       //bf::FLASH_Unlock();
   }
@@ -999,28 +1018,5 @@ extern "C" {
   void delay(uint32_t ms) {
       microsleep(ms * 1000);
   }
-
-/*
-  uint64_t nanos64_real(void)
-  {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return (ts.tv_sec*1e9 + ts.tv_nsec) - (start_time.tv_sec*1e9 + start_time.tv_nsec);
-  }
-
-  uint64_t micros64_real(void)
-  {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return 1.0e6*((ts.tv_sec + (ts.tv_nsec*1.0e-9)) - (start_time.tv_sec + (start_time.tv_nsec*1.0e-9)));
-  }
-
-  uint64_t millis64_real(void)
-  {
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return 1.0e3*((ts.tv_sec + (ts.tv_nsec*1.0e-9)) - (start_time.tv_sec + (start_time.tv_nsec*1.0e-9)));
-  }
-*/
 
 }

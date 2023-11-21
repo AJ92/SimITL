@@ -9,7 +9,6 @@
 #include "packets.h"
 
 #include "LowPassFilter.h"
-#include "LerpFilter.h"
 #include "SimplexNoise.h"
 
 #include <array>
@@ -86,11 +85,15 @@ private:
 
   // current internal state
   StatePacket statePacket = {};
+
+  // state update mutex (reception is in seperate thread)
   std::mutex statePacketMutex;
+  
   // state update from rendering side
   std::queue<StatePacket> receivedStatePacketQueue {};
 
   // update queues for rendering side
+  uint32_t maxQueueSize = 10U;
   std::queue<StateUpdatePacket> sendStateUpdatePacketQueue {};
   std::queue<StateOsdUpdatePacket> sendStateOsdUpdatePacketQueue {};
 
@@ -98,6 +101,7 @@ private:
   StateUpdatePacket stateUpdate = {};
   StateOsdUpdatePacket osdUpdate = {};
 
+  // rc update mutex (reception is in seperate thread)
   std::mutex rcMutex;
   uint16_t rc_data[16] {};
   uint32_t rcDataReceptionTimeUs;
@@ -106,9 +110,7 @@ private:
 
   vmath::vec3 acceleration = {0, 0, 0};
 
-  LowPassFilter gyroLowPassFilterX{};
-  LowPassFilter gyroLowPassFilterY{};
-  LowPassFilter gyroLowPassFilterZ{};
+  LowPassFilter gyroLowPassFilter[3]{};
 
   LowPassFilter motorPwmLowPassFilter[4] = {};
 
@@ -145,7 +147,6 @@ private:
 
   // protected for testing
 protected:
-
   void set_gyro(const double dt, const StatePacket& state, const vmath::vec3& acceleration, const vmath::vec3& noise);
 
   float calculate_motors(double dt,
