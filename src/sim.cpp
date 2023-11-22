@@ -75,25 +75,27 @@ namespace bf {
   }
 }  // namespace bf
 
-void copy(vmath::vec3& out, const Vec3F& in){
+using namespace vmath;
+
+inline void copy(vec3& out, const Vec3F& in){
   out[0] = in.x;
   out[1] = in.y;
   out[2] = in.z;
 }
 
-void copy(vmath::mat3& out, const Vec3F* in){
+inline void copy(mat3& out, const Vec3F* in){
   for(int i = 0; i < 3; i++){
     copy(out[i], in[i]);
   }
 }
 
-void copy(Vec3F& out, const vmath::vec3& in){
+inline void copy(Vec3F& out, const vec3& in){
   out.x = in[0];
   out.y = in[1];
   out.z = in[2];
 }
 
-void copy(Vec3F* out, const vmath::mat3& in){
+inline void copy(Vec3F* out, const mat3& in){
   for(int i = 0; i < 3; i++){
     copy(out[i], in[i]);
   }
@@ -120,7 +122,6 @@ void Sim::set_gyro(const double dt,
                    const vmath::vec3& acceleration, 
                    const vmath::vec3& noise
 ) {
-    using namespace vmath;
     mat3 basis;
     copy(basis, state.rotation);
     quat rotation = mat3_to_quat(basis);
@@ -216,7 +217,6 @@ float Sim::motor_torque(float volts, float rpm, float kV, float R, float I0) {
 }
 
 float Sim::prop_thrust(float rpm, float vel) {
-    using namespace vmath;
     // max thrust vs velocity:
     auto propF = initPacket.propThrustFactor.x * vel * vel +
                  initPacket.propThrustFactor.y * vel +
@@ -242,8 +242,6 @@ float Sim::calculate_motors(double dt,
                             StatePacket& state,
                             std::array<MotorState, 4>& motors) 
 {
-    using namespace vmath;
-
     const float motor_dir[4] = {1.0, -1.0, -1.0, 1.0};
 
     float resPropTorque = 0;
@@ -389,26 +387,21 @@ void Sim::updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise){
 void Sim::updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise){
   float maxV = initPacket.quadBatCellCount * 4.2;
 
-  float maxRpm1 = std::max(initPacket.motorKV[0] * maxV, 0.1f);
-  float maxRpm2 = std::max(initPacket.motorKV[1] * maxV, 0.1f);
-  float maxRpm3 = std::max(initPacket.motorKV[2] * maxV, 0.1f);
-  float maxRpm4 = std::max(initPacket.motorKV[3] * maxV, 0.1f);
+  // per motor 0 - 3
+  vec4 motorKV = toVec4(initPacket.motorKV);
+  vec4 maxRpm = maximum((motorKV * maxV), 0.1f);
 
-  //float m1Hz = rpmToHz(motorsState[0].rpm);
-  float rpmFactorM1 = std::max(0.0f, motorsState[0].rpm) / maxRpm1;
-  float rpmFactorM2 = std::max(0.0f, motorsState[1].rpm) / maxRpm2;
-  float rpmFactorM3 = std::max(0.0f, motorsState[2].rpm) / maxRpm3;
-  float rpmFactorM4 = std::max(0.0f, motorsState[3].rpm) / maxRpm4;
+  vec4 motorRpm = {
+    motorsState[0].rpm,
+    motorsState[1].rpm,
+    motorsState[2].rpm,
+    motorsState[3].rpm
+  };
 
-  rpmFactorM1 = rpmFactorM1 * rpmFactorM1;
-  rpmFactorM2 = rpmFactorM2 * rpmFactorM2;
-  rpmFactorM3 = rpmFactorM3 * rpmFactorM3;
-  rpmFactorM4 = rpmFactorM4 * rpmFactorM4;
-
-  float dmgFactorM1 = (state.propDamage[0] + 0.05f);
-  float dmgFactorM2 = (state.propDamage[1] + 0.05f);
-  float dmgFactorM3 = (state.propDamage[2] + 0.05f);
-  float dmgFactorM4 = (state.propDamage[3] + 0.05f);
+  vec4 rpmFactor    = maximum(motorRpm, 0.0f) / maxRpm;
+  vec4 rpmFactor2   = rpmFactor * rpmFactor;
+  vec4 dmgFactor    = toVec4(state.propDamage) + 0.05f;
+  vec4 rpmDmgFactor = dmgFactor * rpmFactor2;
 
   // only call once per dt, adapts motor phase!
   vmath::vec2 m1Noise = motorNoise(dt, motorsState[0]);
@@ -417,22 +410,22 @@ void Sim::updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& ang
   vmath::vec2 m4Noise = motorNoise(dt, motorsState[3]);
 
   float noiseX = 
-    m1Noise[0] * rpmFactorM1 * dmgFactorM1 * state.motorImbalance[0].x +
-    m2Noise[0] * rpmFactorM2 * dmgFactorM2 * state.motorImbalance[1].x +
-    m3Noise[0] * rpmFactorM3 * dmgFactorM3 * state.motorImbalance[2].x +
-    m4Noise[0] * rpmFactorM4 * dmgFactorM4 * state.motorImbalance[3].x;
+    m1Noise[0] * state.motorImbalance[0].x * rpmDmgFactor[0] +
+    m2Noise[0] * state.motorImbalance[1].x * rpmDmgFactor[1] +
+    m3Noise[0] * state.motorImbalance[2].x * rpmDmgFactor[2] +
+    m4Noise[0] * state.motorImbalance[3].x * rpmDmgFactor[3] ;
 
   float noiseY = 
-    m1Noise[1] * rpmFactorM1 * dmgFactorM1 * state.motorImbalance[0].y +
-    m2Noise[1] * rpmFactorM2 * dmgFactorM2 * state.motorImbalance[1].y +
-    m3Noise[1] * rpmFactorM3 * dmgFactorM3 * state.motorImbalance[2].y +
-    m4Noise[1] * rpmFactorM4 * dmgFactorM4 * state.motorImbalance[3].y;
+    m1Noise[1] * state.motorImbalance[0].y * rpmDmgFactor[0] +
+    m2Noise[1] * state.motorImbalance[1].y * rpmDmgFactor[1] +
+    m3Noise[1] * state.motorImbalance[2].y * rpmDmgFactor[2] +
+    m4Noise[1] * state.motorImbalance[3].y * rpmDmgFactor[3] ;
 
   double noiseZ = 
-    (m1Noise[0] + m1Noise[1]) * rpmFactorM1 * dmgFactorM1 * state.motorImbalance[0].z +
-    (m2Noise[0] + m2Noise[1]) * rpmFactorM2 * dmgFactorM2 * state.motorImbalance[1].z +
-    (m3Noise[0] + m3Noise[1]) * rpmFactorM3 * dmgFactorM3 * state.motorImbalance[2].z +
-    (m4Noise[0] + m4Noise[1]) * rpmFactorM4 * dmgFactorM4 * state.motorImbalance[3].z;
+    (m1Noise[0] + m1Noise[1]) * state.motorImbalance[0].z * rpmDmgFactor[0] +
+    (m2Noise[0] + m2Noise[1]) * state.motorImbalance[1].z * rpmDmgFactor[1] +
+    (m3Noise[0] + m3Noise[1]) * state.motorImbalance[2].z * rpmDmgFactor[2] +
+    (m4Noise[0] + m4Noise[1]) * state.motorImbalance[3].z * rpmDmgFactor[3] ;
 
   //BF_DEBUG_SET(bf::DEBUG_SIM, 3, (1.0f + noiseX) * 1000.0f);
   //BF_DEBUG_SET(bf::DEBUG_SIM, 2, m1Hz);
@@ -443,12 +436,14 @@ void Sim::updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& ang
 }
 
 void Sim::update_rotation(double dt, StatePacket& state) {
-    using namespace vmath;
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
     const auto w = angularVelocity * dt;
     const mat3 W = {
-      vec3{1, -w[2], w[1]}, vec3{w[2], 1, -w[0]}, vec3{-w[1], w[0], 1}};
+      vec3{    1, -w[2],  w[1]}, 
+      vec3{ w[2],     1, -w[0]}, 
+      vec3{-w[1],  w[0],     1}
+    };
     
     mat3 rotation;
     copy(rotation, state.rotation);
@@ -462,7 +457,6 @@ vmath::vec3 Sim::calculate_physics(
   const std::array<MotorState, 4>& motors,
   float motorsTorque
 ) {
-    using namespace vmath;
     vec3 acceleration;
 
     auto gravity_force = vec3{0, -9.81f * initPacket.quadMass, 0};
@@ -746,8 +740,6 @@ int64_t stepTimeSum = 0;
 std::chrono::system_clock::time_point lastStepTime;
 
 bool Sim::step() {
-  using namespace vmath;
-
   dyad_update();
 
   std::lock_guard<std::mutex> guard(statePacketMutex);
@@ -863,12 +855,9 @@ bool Sim::step() {
 
     statePacket.position = statePacketUpdate.position;
 
-
     memcpy( statePacket.rotation, statePacketUpdate.rotation, 3 * sizeof(Vec3F) );
   
     receivedStatePacketQueue.pop();
-
-
 
     armingDisabledFlags = (int)bf::getArmingDisableFlags();
 
@@ -910,8 +899,6 @@ bool Sim::step() {
 }
 
 bool Sim::simStep() {
-  using namespace vmath;
-
   vec3 gyroNoise;
   vec3 motorNoise;
   vec3 combinedGyroNoise;

@@ -111,7 +111,6 @@ private:
   vmath::vec3 acceleration = {0, 0, 0};
 
   LowPassFilter gyroLowPassFilter[3]{};
-
   LowPassFilter motorPwmLowPassFilter[4] = {};
 
   //current battery voltage
