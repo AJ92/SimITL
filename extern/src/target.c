@@ -45,7 +45,7 @@
 
 const timerHardware_t timerHardware[1]; // unused
 
-#include "drivers/accgyro/accgyro_fake.h"
+#include "drivers/accgyro/accgyro_virtual.h"
 #include "flight/imu.h"
 
 #include "config/feature.h"
@@ -96,7 +96,7 @@ void timerInit(void)
     printf("[timer]Init...\n");
 }
 
-void timerStart(void)
+void timerStart(TIM_TypeDef *tim)
 {
 }
 
@@ -323,6 +323,11 @@ void pwmWriteServo(uint8_t index, float value)
     //TODO: write pwm values to a state packet that can be send back
 }
 
+bool motorUpdateStartNull(void)
+{
+    return true;
+}
+
 static motorDevice_t motorPwmDevice = {
     .vTable = {
         .postInit = motorPostInitNull,
@@ -331,7 +336,7 @@ static motorDevice_t motorPwmDevice = {
         .enable = pwmEnableMotors,
         .disable = pwmDisableMotors,
         .isMotorEnabled = pwmIsMotorEnabled,
-        .updateStart = motorUpdateStartNull,
+        .updateInit = motorUpdateStartNull,
         .write = pwmWriteMotor,
         .writeInt = pwmWriteMotorInt,
         .updateComplete = pwmCompleteMotorUpdate,

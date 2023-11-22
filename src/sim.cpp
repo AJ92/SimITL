@@ -21,7 +21,7 @@ namespace bf {
     #include "scheduler/scheduler.h"
     #include "sensors/sensors.h"
 
-    #include "drivers/accgyro/accgyro_fake.h"
+    #include "drivers/accgyro/accgyro_virtual.h"
     #include "drivers/pwm_output.h"
     #include "drivers/pwm_output_fake.h"
 
@@ -154,7 +154,7 @@ void Sim::set_gyro(const double dt,
           bf::constrain(int(accelerometer[0] * ACC_SCALE), -32767, 32767));
         z = int16_t(
           bf::constrain(int(accelerometer[1] * ACC_SCALE), -32767, 32767));
-        bf::fakeAccSet(bf::fakeAccDev, x, y, z);
+        bf::virtualAccSet(bf::virtualAccDev, x, y, z);
 //#endif
     }
 
@@ -164,7 +164,7 @@ void Sim::set_gyro(const double dt,
       bf::constrain(int(gyro[0] * GYRO_SCALE * RAD2DEG), -32767, 32767));
     z = int16_t(
       bf::constrain(int(-gyro[1] * GYRO_SCALE * RAD2DEG), -32767, 32767));
-    bf::fakeGyroSet(bf::fakeGyroDev, x, y, z);
+    bf::virtualGyroSet(bf::virtualGyroDev, x, y, z);
 
     const auto
       DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS =

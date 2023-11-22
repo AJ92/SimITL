@@ -78,7 +78,8 @@ typedef enum {
     BAUD_1000000,
     BAUD_1500000,
     BAUD_2000000,
-    BAUD_2470000
+    BAUD_2470000,
+    BAUD_COUNT
 } baudRate_e;
 
 extern const uint32_t baudRates[];
@@ -97,6 +98,7 @@ typedef enum {
     SERIAL_PORT_USART8,
     SERIAL_PORT_UART9,
     SERIAL_PORT_USART10,
+    SERIAL_PORT_USART_MAX = SERIAL_PORT_USART10,
     SERIAL_PORT_USB_VCP = 20,
     SERIAL_PORT_SOFTSERIAL1 = 30,
     SERIAL_PORT_SOFTSERIAL2,
@@ -106,10 +108,21 @@ typedef enum {
 
 extern const serialPortIdentifier_e serialPortIdentifiers[SERIAL_PORT_COUNT];
 
-#define SERIAL_PORT_IDENTIFIER_TO_INDEX(x) (((x) <= SERIAL_PORT_USART8) ? (x) : (RESOURCE_SOFT_OFFSET + ((x) - SERIAL_PORT_SOFTSERIAL1)))
+#define SOFTSERIAL_PORT_IDENTIFIER_TO_INDEX(x) ((x) - SERIAL_PORT_SOFTSERIAL1)
 
+#if defined(USE_LPUART1)
+
+#define SERIAL_PORT_IDENTIFIER_TO_INDEX(x) \
+    (((x) <= SERIAL_PORT_USART_MAX) ? ((x) - SERIAL_PORT_USART1) : ((x) - SERIAL_PORT_LPUART1) + LPUARTDEV_1)
+#define SERIAL_PORT_IDENTIFIER_TO_UARTDEV(x) \
+    (((x) <= SERIAL_PORT_USART_MAX) ? ((x) - SERIAL_PORT_USART1 + UARTDEV_1) : ((x) - SERIAL_PORT_LPUART1) + LPUARTDEV_1)
+
+#else
+
+#define SERIAL_PORT_IDENTIFIER_TO_INDEX(x) ((x) - SERIAL_PORT_USART1)
 #define SERIAL_PORT_IDENTIFIER_TO_UARTDEV(x) ((x) - SERIAL_PORT_USART1 + UARTDEV_1)
 
+#endif
 //
 // runtime
 //
@@ -125,8 +138,8 @@ serialPort_t *findSharedSerialPort(uint16_t functionMask, serialPortFunction_e s
 // configuration
 //
 typedef struct serialPortConfig_s {
-    uint16_t functionMask;
-    serialPortIdentifier_e identifier;
+    uint32_t functionMask;
+    int8_t identifier;
     uint8_t msp_baudrateIndex;
     uint8_t gps_baudrateIndex;
     uint8_t blackbox_baudrateIndex;
@@ -152,6 +165,7 @@ uint8_t serialGetAvailablePortCount(void);
 bool serialIsPortAvailable(serialPortIdentifier_e identifier);
 bool isSerialConfigValid(const serialConfig_t *serialConfig);
 const serialPortConfig_t *serialFindPortConfiguration(serialPortIdentifier_e identifier);
+serialPortConfig_t *serialFindPortConfigurationMutable(serialPortIdentifier_e identifier);
 bool doesConfigurationUsePort(serialPortIdentifier_e portIdentifier);
 const serialPortConfig_t *findSerialPortConfig(serialPortFunction_e function);
 const serialPortConfig_t *findNextSerialPortConfig(serialPortFunction_e function);

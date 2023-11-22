@@ -79,16 +79,20 @@ extern char* EEPROM_FILENAME;
 #define USE_FAKE_LED
 
 #define USE_ACC
-#define USE_FAKE_ACC
+#define USE_FAKE_ACC // can be removed
+#define USE_VIRTUAL_ACC
 
 #define USE_GYRO
-#define USE_FAKE_GYRO
+#define USE_FAKE_GYRO // can be removed
+#define USE_VIRTUAL_GYRO
 
 #define USE_MAG
 #define USE_FAKE_MAG
+#define USE_VIRTUAL_MAG
 
 #define USE_BARO
 #define USE_FAKE_BARO
+#define USE_VIRTUAL_BARO
 
 #define USE_GPS
 #define USE_BLACKBOX

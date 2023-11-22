@@ -43,9 +43,9 @@ set(BETAFLIGHT_SOURCES
   config/config_eeprom.c
   config/simplified_tuning.c
 
-  drivers/accgyro/accgyro_fake.c
+  drivers/accgyro/accgyro_virtual.c
   drivers/accgyro/gyro_sync.c
-  drivers/barometer/barometer_fake.c
+  drivers/barometer/barometer_virtual.c
   drivers/timer_common.c
   drivers/motor.c
   drivers/bus.c
@@ -58,7 +58,7 @@ set(BETAFLIGHT_SOURCES
   drivers/display.c
   drivers/light_led.c
   #drivers/max7456.c
-  drivers/pwm_esc_detect.c
+  #drivers/pwm_esc_detect.c
   drivers/rx/rx_pwm.c
   drivers/mco.c
   drivers/pinio.c
@@ -114,7 +114,7 @@ set(BETAFLIGHT_SOURCES
   flight/pid.c
   flight/pid_init.c
   flight/position.c
-  flight/feedforward.c
+  #flight/feedforward.c
   flight/gps_rescue.c
 
   io/serial.c
