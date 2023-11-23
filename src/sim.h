@@ -1,5 +1,5 @@
-#ifndef SIMFLIGHT
-#define SIMFLIGHT
+#ifndef SimITL
+#define SimITL
 
 #ifdef _WIN32
 #include "winsock2.h"

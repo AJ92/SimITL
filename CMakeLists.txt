@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.3)
-project(SimFlight)
+#Sim In The Loop
+project(SimITL)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -34,43 +35,44 @@ set(SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.cpp
 )
 
-add_library(libsim OBJECT ${BETAFLIGHT_SOURCES} ${SOURCE_FILES})
-target_compile_features(libsim PUBLIC cxx_std_17)
+add_library(libsitl OBJECT ${BETAFLIGHT_SOURCES} ${SOURCE_FILES})
+target_compile_features(libsitl PUBLIC cxx_std_17)
 
-target_compile_definitions(libsim PUBLIC "SITL")
-target_compile_definitions(libsim PUBLIC "__TARGET__=\"SIMFLIGHT\"")
-target_compile_definitions(libsim PUBLIC "__REVISION__=\"1\"")
+target_compile_definitions(libsitl PUBLIC "SITL")
+target_compile_definitions(libsitl PUBLIC "__TARGET__=\"SimITL\"")
+target_compile_definitions(libsitl PUBLIC "__REVISION__=\"1\"")
 
-target_compile_definitions(libsim PUBLIC SIMULATOR_BUILD)
-target_compile_definitions(libsim PUBLIC "HSE_VALUE=8000000")
-target_compile_definitions(libsim PUBLIC "FLASH_SIZE=2048")
+target_compile_definitions(libsitl PUBLIC SIMULATOR_BUILD)
+target_compile_definitions(libsitl PUBLIC "HSE_VALUE=8000000")
+target_compile_definitions(libsitl PUBLIC "FLASH_SIZE=2048")
 
 
-target_include_directories(libsim PUBLIC extern)
-target_include_directories(libsim PUBLIC extern/src/)
-target_include_directories(libsim PUBLIC extern/betaflight/lib/main/dyad)
-target_include_directories(libsim PUBLIC extern/betaflight/src/main)
+target_include_directories(libsitl PUBLIC extern)
+target_include_directories(libsitl PUBLIC extern/src/)
+target_include_directories(libsitl PUBLIC extern/betaflight/lib/main/dyad)
+target_include_directories(libsitl PUBLIC extern/betaflight/src/main)
 
-target_include_directories(libsim PUBLIC extern/kissnet)
+target_include_directories(libsitl PUBLIC extern/kissnet)
 
-target_link_libraries(libsim PUBLIC fmt-header-only)
+target_link_libraries(libsitl PUBLIC fmt-header-only)
 
-add_executable(SimFlight
-  src/main.cpp $<TARGET_OBJECTS:libsim>
+# SimInTheLoop executable
+add_executable(SimITL
+  src/main.cpp $<TARGET_OBJECTS:libsitl>
 )
-target_compile_features(SimFlight PUBLIC cxx_std_17)
+target_compile_features(SimITL PUBLIC cxx_std_17)
 
-target_link_libraries(SimFlight PUBLIC 
-  libsim
+target_link_libraries(SimITL PUBLIC 
+  libsitl
 )
 
 if (UNIX)
-  target_link_libraries(SimFlight PUBLIC -lpthread)
+  target_link_libraries(SimITL PUBLIC -lpthread)
 endif (UNIX)
 
 
 if (WIN32)
-  target_link_libraries(SimFlight PUBLIC wsock32 ws2_32)
+  target_link_libraries(SimITL PUBLIC wsock32 ws2_32)
 endif (WIN32)
 
 #add_subdirectory(test)
