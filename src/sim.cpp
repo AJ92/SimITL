@@ -68,6 +68,7 @@ namespace bf {
     static void setEepromFileName(const char* filename = "eeprom.bin"){
       const size_t maxFileSize = 32;
       EEPROM_FILENAME = new char[maxFileSize];
+      std::fill(EEPROM_FILENAME, EEPROM_FILENAME + maxFileSize, 0);
       memcpy(EEPROM_FILENAME, filename, strnlen(filename, maxFileSize));
     }
 
