@@ -50,11 +50,6 @@
 // disable this if wants to test AHRS algorithm
 #undef USE_IMU_CALC
 
-//#define SIMULATOR_ACC_SYNC
-//#define SIMULATOR_GYRO_SYNC
-//#define SIMULATOR_IMU_SYNC
-//#define SIMULATOR_GYROPID_SYNC
-
 // file name to save config
 //#define EEPROM_FILENAME "eeprom.bin"
 
@@ -76,22 +71,19 @@ extern char* EEPROM_FILENAME;
 
 #define USE_LATE_TASK_STATISTICS
 
-#define USE_FAKE_LED
+#define USE_VIRTUAL_LED
+//#define USE_VIRTUAL_CURRENT_METER
 
 #define USE_ACC
-#define USE_FAKE_ACC // can be removed
 #define USE_VIRTUAL_ACC
 
 #define USE_GYRO
-#define USE_FAKE_GYRO // can be removed
 #define USE_VIRTUAL_GYRO
 
 #define USE_MAG
-#define USE_FAKE_MAG
 #define USE_VIRTUAL_MAG
 
 #define USE_BARO
-#define USE_FAKE_BARO
 #define USE_VIRTUAL_BARO
 
 #define USE_GPS

@@ -24,6 +24,7 @@ namespace bf {
     #include "drivers/accgyro/accgyro_virtual.h"
     #include "drivers/pwm_output.h"
     #include "drivers/pwm_output_fake.h"
+    #include "sensors/current.h"
 
     //added, not sure if needed
     #include "rx/rx.h"
@@ -329,6 +330,7 @@ void Sim::updateBat(double dt) {
 
   bf::setCellCount(initPacket.quadBatCellCount);
   bf::voltageMeter_t* vMeter = bf::getVoltageMeter();
+  bf::currentMeter_t* cMeter = bf::getCurrentMeter();
 
   float rpmSum = 0.0f;
   for(int i = 0; i < 4; i++){
@@ -347,7 +349,14 @@ void Sim::updateBat(double dt) {
   float currentmAs = powerFactor * powerFactor * initPacket.maxAmpDraw;
   currentmAs = std::max(currentmAs, 0.075f);
 
+  // divided by 10 so mAh become centi ampere 1/100
+  cMeter->amperage = ((batVoltage / initPacket.quadBatVoltage) * powerFactor * initPacket.quadBatCapacity) / 10.0 * 60.0;
+  cMeter->amperageLatest = cMeter->amperage;
+
   batCapacity -= currentmAs * dt;
+
+  cMeter->mAhDrawn = initPacket.quadBatCapacity - batCapacity;
+
   // negative cappa allows to drop voltage below 3.5V
   //batCapacity = std::max(batCapacity, 0.1f);
 }
