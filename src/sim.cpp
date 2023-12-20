@@ -132,7 +132,7 @@ void Sim::set_gyro(const double dt,
     copy(angularVelocity, state.angularVelocity);
     angularVelocity = angularVelocity + noise;
 
-    constexpr float cutoffFreq = 330.0f;
+    constexpr float cutoffFreq = 300.0f;
     angularVelocity[0] = gyroLowPassFilter[0].update(angularVelocity[0], dt, cutoffFreq);
     angularVelocity[1] = gyroLowPassFilter[1].update(angularVelocity[1], dt, cutoffFreq);
     angularVelocity[2] = gyroLowPassFilter[2].update(angularVelocity[2], dt, cutoffFreq);
@@ -261,70 +261,66 @@ float Sim::calculate_motors(double dt,
     float speedFactor = std::min(speed / maxEffectSpeed, 1.0f);
 
     for (int i = 0; i < 4; i++) {
-        // 1.0 - effect
-        float propHealthFactor = (1.0f - state.propDamage[i]);
-        // 1.0 + effect
-        float groundEffect = 1.0f + ((state.groundEffect[i] * state.groundEffect[i]) * 0.7f);
-        
-        // positive value depending on how much thrust is given against actual movement direction of quad
-        float reverseThrust = std::max(0.0f, dot(normalize(linVel), normalize(motors[i].thrust * up) * -1.0f));
-        // keep between 0.0 and 1.0, takes 25% that point the most against movement direction
-        reverseThrust = std::max(0.0f, reverseThrust - 0.75f) * 4.0f;
-        reverseThrust = reverseThrust * reverseThrust;
-        float propWashNoise = std::max(0.0f, 0.5f * (SimplexNoise::noise(reverseThrust * speed * motors[i].thrust) + 1.0f));
-
-
-
-        // 1.0 - effect
-        float propwashEffect = 1.0f - (propWashNoise * reverseThrust * 0.75f) * speedFactor;
-
-        auto rpm = motors[i].rpm;
-        const auto kV = initPacket.motorKV[i];
-        const auto R  = initPacket.motorR[i];
-        const auto I0 = initPacket.motorI0[i];
-
-        //prevent division by 0
-        float vbat = std::max(1.0f, batVoltageSag);
-
-        float armed = ((bf::armingFlags & (bf::ARMED)) == 0) ? 0.0f : 1.0f;
-        //prevents remaining low rpm during disarm
-        const auto initalCurrentThres = I0 * armed;
-
-        const auto volts = motorPwmLowPassFilter[i].update(bf::motorsPwm[i], dt, 120.0f) / 1000.0f * vbat;
-        const auto torque = motor_torque(volts, rpm, kV, R, initalCurrentThres);
-        const auto ptorque = prop_torque(rpm, vel) * propHealthFactor;
-        const auto net_torque = torque - ptorque;
+      // 1.0 - effect
+      float propHealthFactor = (1.0f - state.propDamage[i]);
+      // 1.0 + effect
+      float groundEffect = 1.0f + ((state.groundEffect[i] * state.groundEffect[i]) * 0.7f);
       
-        const auto domega = net_torque / std::max(initPacket.propInertia, 0.00000001f);
-        const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
+      // positive value depending on how much thrust is given against actual movement direction of quad
+      float reverseThrust = std::max(0.0f, dot(normalize(linVel), normalize(motors[i].thrust * up) * -1.0f));
+      // keep between 0.0 and 1.0, takes 25% that point the most against movement direction
+      reverseThrust = std::max(0.0f, reverseThrust - 0.75f) * 4.0f;
+      reverseThrust = reverseThrust * reverseThrust;
+      float propWashNoise = std::max(0.0f, 0.5f * (SimplexNoise::noise(reverseThrust * speed * motors[i].thrust) + 1.0f));
 
-        const auto maxdrpm = fabsf(volts * kV - rpm);
-        rpm += clamp(drpm, -maxdrpm, maxdrpm);
 
-        motors[i].thrust = prop_thrust(rpm, vel) * propHealthFactor * groundEffect * propwashEffect;
-        motors[i].rpm = rpm;
-        resPropTorque += motor_dir[i] * torque;
 
-        if(i == 0){
-          BF_DEBUG_SET(bf::DEBUG_SIM, 0, reverseThrust * 1000);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 1, speedFactor * 1000);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 2, propwashEffect * 1000);
-          BF_DEBUG_SET(bf::DEBUG_SIM, 3, motors[i].thrust * 1000);
-        }
+      // 1.0 - effect
+      float propwashEffect = 1.0f - (propWashNoise * reverseThrust * 0.75f) * speedFactor;
+
+      auto rpm = motors[i].rpm;
+      const auto kV = initPacket.motorKV[i];
+      const auto R  = initPacket.motorR[i];
+      const auto I0 = initPacket.motorI0[i];
+
+      //prevent division by 0
+      float vbat = std::max(1.0f, batVoltageSag);
+
+      float armed = ((bf::armingFlags & (bf::ARMED)) == 0) ? 0.0f : 1.0f;
+      //prevents remaining low rpm during disarm
+      const auto initalCurrentThres = I0 * armed;
+
+      const auto volts = motorPwmLowPassFilter[i].update(bf::motorsPwm[i], dt, 120.0f) / 1000.0f * vbat;
+      const auto torque = motor_torque(volts, rpm, kV, R, initalCurrentThres);
+      const auto ptorque = prop_torque(rpm, vel) * propHealthFactor;
+      const auto net_torque = torque - ptorque;
+
+      const auto domega = net_torque / std::max(initPacket.propInertia, 0.00000001f);
+      const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
+
+      const auto maxdrpm = fabsf(volts * kV - rpm);
+      rpm += clamp(drpm, -maxdrpm, maxdrpm);
+
+      motors[i].torque = net_torque;
+      motors[i].thrust = prop_thrust(rpm, vel) * propHealthFactor * groundEffect * propwashEffect;
+      motors[i].rpm = rpm;
+      resPropTorque += motor_dir[i] * torque;
+
+      if(i == 0){
+        BF_DEBUG_SET(bf::DEBUG_SIM, 0, reverseThrust    * 1000);
+        BF_DEBUG_SET(bf::DEBUG_SIM, 1, speedFactor      * 1000);
+        BF_DEBUG_SET(bf::DEBUG_SIM, 2, propwashEffect   * 1000);
+        BF_DEBUG_SET(bf::DEBUG_SIM, 3, motors[i].thrust * 1000);
+      }
     }
 
     return resPropTorque;
 }
 
 void Sim::updateBat(double dt) {
-  if(batVoltage > (3.5f * initPacket.quadBatCellCount)){
-    batVoltage = initPacket.quadBatVoltage 
-      - ((0.7 * initPacket.quadBatCellCount) 
-      * (1.0 - (batCapacity / std::max(initPacket.quadBatCapacity, 0.01f))));
-  }
-  else{
-    batVoltage -= 0.5f * dt;
-  }
+ 
+  const float batCapacityFull = std::max(initPacket.quadBatCapacity, 1.0f);
+  batVoltage = batVoltageCurve.sample(1.0f - (batCapacity / batCapacityFull)) * initPacket.quadBatCellCount;
 
   batVoltage = std::max(batVoltage, 0.1f);
 
@@ -338,7 +334,11 @@ void Sim::updateBat(double dt) {
   }
   
   const float powerFactor = std::max(0.0f, std::min(1.0f, ((rpmSum / std::max(initPacket.propMaxRpm, 0.01f)) / 4.0f)));
-  float vSag = initPacket.maxVoltageSag * powerFactor * powerFactor;
+  const float powerFactor2 = powerFactor * powerFactor;
+  const float chargeFactorInv = 1.0f - (batCapacity / std::max(initPacket.quadBatCapacityCharged, 1.0f));
+ 
+  float vSag = initPacket.maxVoltageSag * powerFactor2 + // power dependency
+  (initPacket.maxVoltageSag * chargeFactorInv * chargeFactorInv * powerFactor2); // charge state dependency
 
   batVoltageSag = batVoltage - vSag;
 
@@ -346,41 +346,64 @@ void Sim::updateBat(double dt) {
   vMeter->displayFiltered = batVoltageSag * 1e2;
   vMeter->sagFiltered     = batVoltage    * 1e2;
 
-  float currentmAs = powerFactor * powerFactor * initPacket.maxAmpDraw;
-  currentmAs = std::max(currentmAs, 0.075f);
+  float currentmAs = powerFactor2 * initPacket.maxAmpDraw;
+  // minimum 2W consumption clamped to max 2mA/s to account for running electronics
+  const float mAMin = std::min(2.0f, 2.0f / std::max(batVoltageSag, 0.01f));
+  currentmAs = std::max(currentmAs, mAMin );
 
-  // divided by 10 so mAh become centi ampere 1/100
-  cMeter->amperage = ((batVoltage / initPacket.quadBatVoltage) * powerFactor * initPacket.quadBatCapacity) / 10.0 * 60.0;
+  // 1W = 1V * 1A
+  //P = I * V
+
+  // centi ampere 1/100
+  // milliAmpSeconds * 3600 / 1000 * 100
+  cMeter->amperage = currentmAs * 3.6 * 1e2;
   cMeter->amperageLatest = cMeter->amperage;
 
   batCapacity -= currentmAs * dt;
 
-  cMeter->mAhDrawn = initPacket.quadBatCapacity - batCapacity;
+  cMeter->mAhDrawn = initPacket.quadBatCapacityCharged - batCapacity;
 
   // negative cappa allows to drop voltage below 3.5V
   //batCapacity = std::max(batCapacity, 0.1f);
 }
 
 // -1.0 , 1.0
-static float randf(){
+inline float randf(){
   return (static_cast<float>(rand()) / static_cast <float> (RAND_MAX)) * 2.0f - 1.0f;
 }
 
-static float rpmToHz(float rpm){
+inline float rpmToHz(float rpm){
   return rpm / 60.0f;
 }
 
-vmath::vec2 Sim::motorNoise(const double dt, MotorState& motor){
-  float motorFreqHz = rpmToHz(motor.rpm);
-
+// calculates next phase 
+float Sim::shiftedPhase(const double dt, float hz, float phaseStart){
   constexpr float pi2 = M_PI * 2.0f;
-  float phaseShift = (pi2 * dt * motorFreqHz);
-  float phase = motor.phase + phaseShift;
-  if(phase > pi2){
-    phase = phase - pi2;
+  float phaseShift = (pi2 * dt * hz);
+  float phaseUpdated = phaseStart + phaseShift;
+  if(std::abs(phaseUpdated) > pi2){ // keep number low. is used for sin/cos anyways
+    phaseUpdated = phaseUpdated - (pi2 * static_cast<int>(phaseUpdated / pi2));
   }
-  motor.phase = phase;
-  return {sinf(phase), cosf(phase)};
+  return phaseUpdated;
+}
+
+vmath::mat3 Sim::motorNoise(const double dt, MotorState& motor){
+  // update phase and harmonics
+  motor.phase          = shiftedPhase(dt, rpmToHz(motor.rpm)       , motor.phase);
+  motor.phaseHarmonic1 = shiftedPhase(dt, rpmToHz(motor.rpm) * 2.0f, motor.phaseHarmonic1);
+  motor.phaseHarmonic2 = shiftedPhase(dt, rpmToHz(motor.rpm) * 3.0f, motor.phaseHarmonic2);
+
+  float sinPhase = sinf(motor.phase);
+  float sinPhaseH1 = sinf(motor.phaseHarmonic1);
+  float sinPhaseH2 = sinf(motor.phaseHarmonic2);
+
+  float cosPhase = cosf(motor.phase);
+  float cosPhaseH1 = cosf(motor.phaseHarmonic1);
+  float cosPhaseH2 = cosf(motor.phaseHarmonic2);
+
+  return {vec3{sinPhase, sinPhaseH1, sinPhaseH2}, 
+          vec3{cosPhase, cosPhaseH1, cosPhaseH2},
+          vec3{sinPhase + cosPhase, sinPhaseH1 + cosPhaseH1, sinPhaseH2 + cosPhaseH2}};
 }
 
 void Sim::updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise){
@@ -394,7 +417,7 @@ void Sim::updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise){
   angularNoise[2] = whiteNoiseZ;
 }
 
-void Sim::updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise){
+void Sim::updateMotorNoise(const double dt, const StatePacket& state, vmath::vec3& angularNoise){
   float maxV = initPacket.quadBatCellCount * 4.2;
 
   // per motor 0 - 3
@@ -414,35 +437,96 @@ void Sim::updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& ang
   vec4 rpmDmgFactor = dmgFactor * rpmFactor2;
 
   // only call once per dt, adapts motor phase!
-  vmath::vec2 m1Noise = motorNoise(dt, motorsState[0]);
-  vmath::vec2 m2Noise = motorNoise(dt, motorsState[1]);
-  vmath::vec2 m3Noise = motorNoise(dt, motorsState[2]);
-  vmath::vec2 m4Noise = motorNoise(dt, motorsState[3]);
+  std::array<mat3, 4> mNoise = {
+    motorNoise(dt, motorsState[0]),
+    motorNoise(dt, motorsState[1]),
+    motorNoise(dt, motorsState[2]),
+    motorNoise(dt, motorsState[3])
+  };
 
-  float noiseX = 
-    m1Noise[0] * state.motorImbalance[0].x * rpmDmgFactor[0] +
-    m2Noise[0] * state.motorImbalance[1].x * rpmDmgFactor[1] +
-    m3Noise[0] * state.motorImbalance[2].x * rpmDmgFactor[2] +
-    m4Noise[0] * state.motorImbalance[3].x * rpmDmgFactor[3] ;
+  vec3 noise{0.0f, 0.0f, 0.0f};
+  for(int i = 0; i < 4; i++){
+    noise[0] += 
+      // noise
+      mNoise[i][0][0] * state.motorImbalance[i].x * rpmDmgFactor[i] +
+      // harmonic 1
+      mNoise[i][0][1] * state.motorImbalance[i].x * rpmDmgFactor[i] * initPacket.propHarmonic1Amp +
+      // harmonic 2
+      mNoise[i][0][2] * state.motorImbalance[i].x * rpmDmgFactor[i] * initPacket.propHarmonic2Amp;
 
-  float noiseY = 
-    m1Noise[1] * state.motorImbalance[0].y * rpmDmgFactor[0] +
-    m2Noise[1] * state.motorImbalance[1].y * rpmDmgFactor[1] +
-    m3Noise[1] * state.motorImbalance[2].y * rpmDmgFactor[2] +
-    m4Noise[1] * state.motorImbalance[3].y * rpmDmgFactor[3] ;
+    noise[1] +=
+       // motor noise
+      mNoise[i][1][0] * state.motorImbalance[i].y * rpmDmgFactor[i] +
+      // harmonic 1
+      mNoise[i][1][1] * state.motorImbalance[i].y * rpmDmgFactor[i] * initPacket.propHarmonic1Amp +
+      // harmonic 2
+      mNoise[i][1][2] * state.motorImbalance[i].y * rpmDmgFactor[i] * initPacket.propHarmonic2Amp;
 
-  double noiseZ = 
-    (m1Noise[0] + m1Noise[1]) * state.motorImbalance[0].z * rpmDmgFactor[0] +
-    (m2Noise[0] + m2Noise[1]) * state.motorImbalance[1].z * rpmDmgFactor[1] +
-    (m3Noise[0] + m3Noise[1]) * state.motorImbalance[2].z * rpmDmgFactor[2] +
-    (m4Noise[0] + m4Noise[1]) * state.motorImbalance[3].z * rpmDmgFactor[3] ;
+    noise[2] += ( 
+      // motor noise
+      mNoise[i][2][0] * state.motorImbalance[i].z * rpmDmgFactor[i] +
+      //harmonic 1
+      mNoise[i][2][1] * state.motorImbalance[i].z * rpmDmgFactor[i] * initPacket.propHarmonic1Amp +
+      //harmonic 2
+      mNoise[i][2][2] * state.motorImbalance[i].z * rpmDmgFactor[i] * initPacket.propHarmonic2Amp) * 0.5f;
+  }
+
+  // frame noise 
+  frameHarmonicPhase1 = shiftedPhase(dt, state.frameHarmonic1Freq + randf() * 70.0f, frameHarmonicPhase1);
+  frameHarmonicPhase2 = shiftedPhase(dt, state.frameHarmonic2Freq + randf() * 60.0f, frameHarmonicPhase2);
+
+  vec4 rpmFactorHDec  = minimum(maximum(motorRpm, 0.0f) / (maxRpm * 0.15f), 1.0f);
+  float rpmFactorH = sum(rpmFactorHDec) * 0.25f;
+
+  vec4 rpmFactorH1Inc  = minimum(maximum(motorRpm, 0.0f) / (maxRpm * 0.43f), 1.0f);
+  float rpmFactorH1Inv = sum(1.0f - rpmFactorH1Inc) * 0.25f;
+
+  vec4 rpmFactorH2Inc  = minimum(maximum(motorRpm, 0.0f) / (maxRpm * 0.3f), 1.0f);
+  float rpmFactorH2Inv =  sum(1.0f - rpmFactorH2Inc) * 0.25f;
+
+  noise[0] += //frame harmonic 1
+    ( state.motorImbalance[0].x * dmgFactor[0] +
+      state.motorImbalance[1].x * dmgFactor[1] +
+      state.motorImbalance[2].x * dmgFactor[2] +
+      state.motorImbalance[3].x * dmgFactor[3]
+    ) * 0.25f * state.frameHarmonic1Amp * sinf(frameHarmonicPhase1) * rpmFactorH1Inv * rpmFactorH;
+  noise[0] +=//frame harmonic 2
+    ( state.motorImbalance[0].x * dmgFactor[0] +
+      state.motorImbalance[1].x * dmgFactor[1] +
+      state.motorImbalance[2].x * dmgFactor[2] +
+      state.motorImbalance[3].x * dmgFactor[3]
+    ) * 0.25f * state.frameHarmonic2Amp * sinf(frameHarmonicPhase2)  * rpmFactorH2Inv * rpmFactorH;
+
+  noise[1] += //frame harmonic 1
+    ( state.motorImbalance[0].y * dmgFactor[0] +
+      state.motorImbalance[1].y * dmgFactor[1] +
+      state.motorImbalance[2].y * dmgFactor[2] +
+      state.motorImbalance[3].y * dmgFactor[3]
+    ) * 0.25f * state.frameHarmonic1Amp * cosf(frameHarmonicPhase1) * rpmFactorH1Inv * rpmFactorH;
+  noise[1] += //frame harmonic 2
+    ( state.motorImbalance[0].y * dmgFactor[0] +
+      state.motorImbalance[1].y * dmgFactor[1] +
+      state.motorImbalance[2].y * dmgFactor[2] +
+      state.motorImbalance[3].y * dmgFactor[3]
+    ) * 0.25f * state.frameHarmonic2Amp * cosf(frameHarmonicPhase2)  * rpmFactorH2Inv * rpmFactorH;
+
+  noise[2] += //frame harmonic 1
+    ( state.motorImbalance[0].z * dmgFactor[0] +
+      state.motorImbalance[1].z * dmgFactor[1] +
+      state.motorImbalance[2].z * dmgFactor[2] +
+      state.motorImbalance[3].z * dmgFactor[3]
+    ) * 0.25f * state.frameHarmonic1Amp * sinf(frameHarmonicPhase1) * cosf(frameHarmonicPhase1) * rpmFactorH1Inv * rpmFactorH;
+  noise[2] += //frame harmonic 2
+    ( state.motorImbalance[0].z * dmgFactor[0] +
+      state.motorImbalance[1].z * dmgFactor[1] +
+      state.motorImbalance[2].z * dmgFactor[2] +
+      state.motorImbalance[3].z * dmgFactor[3]
+    ) * 0.25f * state.frameHarmonic2Amp * sinf(frameHarmonicPhase2) * cosf(frameHarmonicPhase2) * rpmFactorH2Inv * rpmFactorH;
 
   //BF_DEBUG_SET(bf::DEBUG_SIM, 3, (1.0f + noiseX) * 1000.0f);
   //BF_DEBUG_SET(bf::DEBUG_SIM, 2, m1Hz);
 
-  angularNoise[0] = noiseX;
-  angularNoise[1] = noiseY;
-  angularNoise[2] = noiseZ;
+  angularNoise = noise;
 }
 
 void Sim::update_rotation(double dt, StatePacket& state) {
@@ -487,15 +571,17 @@ vmath::vec3 Sim::calculate_physics(
 
     vec3 frameDragArea;
     copy(frameDragArea, initPacket.frameDragArea);
-    float area = dot(frameDragArea, abs(local_dir));
+    float areaLinear = dot(frameDragArea, abs(local_dir));
+    float areaAngular = dot(frameDragArea, local_dir);
 
-    total_force = total_force - dir * 0.5f * AIR_RHO * vel2 *
-                                  initPacket.frameDragConstant * area;
+    vec3 dragDir = dir * 0.5f * AIR_RHO * vel2 * initPacket.frameDragConstant;
+    vec3 dragLinear = dragDir * areaLinear;
+    vec3 dragAngular = dragDir * areaAngular;
+    total_force = total_force - dragLinear;
 
     // motors:
     for (auto i = 0u; i < 4; i++) {
-        total_force = total_force +
-                      xform(rotation, vec3{0, motors[i].thrust, 0});
+      total_force = total_force + xform(rotation, vec3{0, motors[i].thrust, 0});
     }
 
     acceleration = total_force / std::max(initPacket.quadMass, 0.001f);
@@ -507,11 +593,17 @@ vmath::vec3 Sim::calculate_physics(
 
     // moment sum around origin:
     vec3 total_moment = get_axis(rotation, 1) * motorsTorque;
+    
+    // drag induced momentum
+    angularDrag = xform_inv(rotation, dragAngular) * 0.001f;
+    total_moment = total_moment + get_axis(rotation, 0) * angularDrag[1];
+    total_moment = total_moment + get_axis(rotation, 1) * angularDrag[0];
+    total_moment = total_moment + get_axis(rotation, 2) * angularDrag[2];
 
     for (auto i = 0u; i < 4; i++) {
-        auto force = xform(rotation, {0, motors[i].thrust, 0});
-        auto rad = xform(rotation, motors[i].position);
-        total_moment = total_moment + cross(rad, force);
+      auto force = xform(rotation, {0, motors[i].thrust, 0});
+      auto rad = xform(rotation, motors[i].position);
+      total_moment = total_moment + cross(rad, force);
     }
 
     vec3 inv_inertia;
@@ -519,14 +611,13 @@ vmath::vec3 Sim::calculate_physics(
     mat3 inv_tensor = {vec3{inv_inertia[0], 0, 0},
                        vec3{0, inv_inertia[1], 0},
                        vec3{0, 0, inv_inertia[2]}};
-    inv_tensor =
-      rotation * inv_tensor * transpose(rotation);
+    inv_tensor = rotation * inv_tensor * transpose(rotation);
     vec3 angularAcc = xform(inv_tensor, total_moment);
     assert(std::isfinite(angularAcc[0]) && std::isfinite(angularAcc[1]) &&
            std::isfinite(angularAcc[2]));
 
     vec3 angularVelocity;
-    copy(angularVelocity, state.angularVelocity);
+    copy(angularVelocity, state.angularVelocity);       // test drag rotation
     angularVelocity = angularVelocity + angularAcc * dt;
     copy(state.angularVelocity, angularVelocity);
 
@@ -631,9 +722,10 @@ bool Sim::connect() {
     rc_data[i] = 1000U;
   }
 
-  batVoltage = initPacket.quadBatVoltage;
+  // is calculated now
+  batVoltage = 0.1f;
   batVoltageSag = batVoltage;
-  batCapacity = initPacket.quadBatCapacity;
+  batCapacity = initPacket.quadBatCapacityCharged;
 
   for (auto i = 0u; i < 4; i++) {
     motorsState[i].position[0] = initPacket.quadMotorPos[i].x;
@@ -786,9 +878,7 @@ bool Sim::step() {
     
     if((statePacketUpdate.commands & CommandType::Repair) == CommandType::Repair){
       //recharge
-      batVoltage = initPacket.quadBatVoltage;
-      batVoltageSag = batVoltage;
-      batCapacity = initPacket.quadBatCapacity;
+      batCapacity = initPacket.quadBatCapacityCharged;
     }
 
     if((statePacketUpdate.commands & CommandType::Reset) == CommandType::Reset){
@@ -875,6 +965,13 @@ bool Sim::step() {
 
     simStep();
 
+    mat3 basis;
+    copy(basis, statePacket.rotation);
+    quat orientation = mat3_to_quat(basis);
+    stateUpdate.orientation.w = orientation[3];
+    stateUpdate.orientation.x = orientation[0];
+    stateUpdate.orientation.y = orientation[1];
+    stateUpdate.orientation.z = orientation[2];
     stateUpdate.angularVelocity = statePacket.angularVelocity;
     stateUpdate.linearVelocity = statePacket.linearVelocity;
     stateUpdate.motorRpm[0] = motorsState[0].rpm;

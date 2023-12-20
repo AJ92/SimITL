@@ -46,16 +46,32 @@ int main() {
         long long delta = sim->micros_passed - elapsedUs;
 
         clearline();
-        fmt::print("dt: {:5.5f}, Sl/s: {:8.1f}, sch/s: {:8.1f}, avgST: {}, krpm: {:5.2f} {:5.2f} {:5.2f} {:5.2f}, dis: {}",
+        fmt::print(
+          "dt:     {:5.5f}, Sl/s: {:8.1f}, sch/s: {:8.1f}, avgST: {}, dis: {},\n" 
+          "krpm:   {:5.2f} {:5.2f} {:5.2f} {:5.2f},\n"
+          "thrust: {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n"
+          "torq:   {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n"
+          "aDrag:  {:5.3f} {:5.3f} {:5.3f}",
           delta / 1e6,
           (float)sim->simSteps - (float)sim->bfSchedules,
           (float)sim->bfSchedules,
           sim->avgStepTime,
+          sim->armingDisabledFlags,
           sim->motorsState[0].rpm / 1e3,
           sim->motorsState[1].rpm / 1e3,
           sim->motorsState[2].rpm / 1e3,
           sim->motorsState[3].rpm / 1e3,
-          sim->armingDisabledFlags
+          sim->motorsState[0].thrust / 9.81f,
+          sim->motorsState[1].thrust / 9.81f,
+          sim->motorsState[2].thrust / 9.81f,
+          sim->motorsState[3].thrust / 9.81f,
+          sim->motorsState[0].torque,
+          sim->motorsState[1].torque,
+          sim->motorsState[2].torque,
+          sim->motorsState[3].torque,
+          sim->angularDrag[0],
+          sim->angularDrag[1],
+          sim->angularDrag[2]
         );
 
         sim->simSteps = 0;

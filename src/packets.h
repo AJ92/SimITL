@@ -59,20 +59,25 @@ struct InitPacket{
   float motorR[4] = {};
   float motorI0[4] = {};
 
+  uint8_t propBladeCount = 0U;
   float propMaxRpm = 0.0f;
   float propAFactor = 0.0f;
   float propTorqueFactor = 0.0f;
   float propInertia = 0.0f;
   Vec3F propThrustFactor {};
+  float propHarmonic1Amp = 0.0f;
+  float propHarmonic2Amp = 0.0f;
 
   Vec3F frameDragArea {};
   float frameDragConstant = 0.0f;
 
   float quadMass = 0.0f;
   Vec3F quadInvInertia {};
-  float quadBatVoltage = 0.0f;
   float maxVoltageSag = 0.0f;
   uint8_t quadBatCellCount = 1;
+  //charged up capacity, can be lower or higher than quadBatCapacity
+  float quadBatCapacityCharged  = 0.0f;
+  //battery capacacity rating
   float quadBatCapacity = 0.0f;
   float maxAmpDraw = 0.0f;
   Vec3F quadMotorPos[4] {};

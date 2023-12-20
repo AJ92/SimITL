@@ -10,6 +10,7 @@
 
 #include "LowPassFilter.h"
 #include "SimplexNoise.h"
+#include "SampleCurve.h"
 
 #include <array>
 #include <cstdint>
@@ -43,8 +44,13 @@ public:
     vmath::vec3 position = {0.0f, 0.0f, 0.0f};
     float rpm = 0.0f;
     float thrust = 0.0f;
+    float torque = 0.0f;
     // sinusoidal phase of the motor rotation used for noise simulation
     float phase = 0.0f;
+    // phase freq * 2
+    float phaseHarmonic1 = 0.0f;
+    // phase freq * 3
+    float phaseHarmonic2 = 0.0f;
   };
 
   static Sim& getInstance();
@@ -75,6 +81,11 @@ public:
   bool stopped = false;
 
   std::array<MotorState, 4> motorsState {};
+
+  float frameHarmonicPhase1 = 0.0f;
+  float frameHarmonicPhase2 = 0.0f;
+
+  vmath::vec3 angularDrag{};
 
   int armingDisabledFlags = 0;
 
@@ -118,6 +129,20 @@ private:
   float batVoltageSag = 0.0f; // in V but saged
   float batCapacity   = 0.0f; // in mAh
 
+  SampleCurve batVoltageCurve{{
+    {-0.06, 4.4  }, //allows overcharge
+    {0.0,   4.2  }, 
+    {0.01,  4.05 }, 
+    {0.04,  3.97 }, 
+    {0.30,  3.82 },
+    {0.40,  3.7  },
+    {1.0,   3.45 },
+    {1.01,  3.4  },
+    {1.03,  3.3  },
+    {1.06,  3.0  },
+    {1.08,  0.0  }
+  }};
+
   kissnet::udp_socket recv_state_socket;
   kissnet::udp_socket recv_rcdat_socket;
   kissnet::udp_socket send_state_socket;
@@ -132,9 +157,10 @@ private:
   float prop_torque(float rpm, float vel);
 
   void updateBat(double dt);
-  vmath::vec2 motorNoise(const double dt, MotorState& motorState);
+  float shiftedPhase(const double dt, float hz, float phase);
+  vmath::mat3 motorNoise(const double dt, MotorState& motorState);
   void updateGyroNoise(const StatePacket& state, vmath::vec3& angularNoise);
-  void updateMotorNoise(double dt, const StatePacket& state, vmath::vec3& angularNoise);
+  void updateMotorNoise(const double dt, const StatePacket& state, vmath::vec3& angularNoise);
 
   bool simStep();
 

@@ -11,6 +11,7 @@ using vec2 = std::array<float, 2>;
 using vec3 = std::array<float, 3>;
 using vec4 = std::array<float, 4>;
 using mat3 = std::array<vec3, 3>;
+// w, x, y, z
 using quat = std::array<float, 4>;
 
 inline vec3 toVec3(const float arr[3]){
@@ -57,8 +58,16 @@ inline vec3 operator/(const vec3& v, float s) {
     return {v[0] / s, v[1] / s, v[2] / s};
 }
 
+inline vec3 operator/(float s, const vec3& v) {
+    return {s / v[0], s / v[1], s / v[2]};
+}
+
 inline vec4 operator/(const vec4& v, float s) {
     return {v[0] / s, v[1] / s, v[2] / s, v[3] / s};
+}
+
+inline vec4 operator/(float s, const vec4& v) {
+    return {s / v[0], s / v[1], s / v[2], s / v[3]};
 }
 
 inline vec3 operator/(const vec3& a, const vec3& b) {
@@ -99,6 +108,14 @@ inline vec3 operator+(const vec3& a, const vec3& b) {
 
 inline vec4 operator+(const vec4& a, const vec4& b) {
     return {a[0] + b[0], a[1] + b[1], a[2] + b[2], a[3] + b[3]};
+}
+
+inline vec3 operator-(float a, const vec3& b) {
+    return {a - b[0], a - b[1], a- b[2]};
+}
+
+inline vec4 operator-(float a, const vec4& b) {
+    return {a - b[0], a - b[1], a - b[2], a - b[3]};
 }
 
 inline vec3 operator-(const vec3& a, float b) {
@@ -205,6 +222,14 @@ inline mat3 operator*(const mat3& a, const mat3& b) {
             vec3{dot(get_axis(b, 0), a[2]),
                  dot(get_axis(b, 1), a[2]),
                  dot(get_axis(b, 2), a[2])}};
+}
+
+inline float sum(const vec3& a) {
+  return a[0] + a[1] + a[2];
+}
+
+inline float sum(const vec4& a) {
+  return a[0] + a[1] + a[2] + a[3];
 }
 
 inline vec3 maximum(const vec3& a, float b) {
