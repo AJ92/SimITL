@@ -42,15 +42,24 @@ public:
   // per motor realtime state
   struct MotorState {
     vmath::vec3 position = {0.0f, 0.0f, 0.0f};
+    float pwm = 0.0f;
+    float temp = 0.0f;
+    float current = 0.0f;
     float rpm = 0.0f;
     float thrust = 0.0f;
-    float torque = 0.0f;
+    // motor torque
+    float mTorque = 0.0f;
+    // propeller torque, counter acting motor torque
+    float pTorque = 0.0f;
+
     // sinusoidal phase of the motor rotation used for noise simulation
     float phase = 0.0f;
     // phase freq * 2
     float phaseHarmonic1 = 0.0f;
     // phase freq * 3
     float phaseHarmonic2 = 0.0f;
+
+    bool burnedOut = false;
   };
 
   static Sim& getInstance();
@@ -86,6 +95,7 @@ public:
   float frameHarmonicPhase2 = 0.0f;
 
   vmath::vec3 angularDrag{};
+  vmath::vec3 angularAcceleration = {0, 0, 0};
 
   int armingDisabledFlags = 0;
 
@@ -127,7 +137,7 @@ private:
   //current battery voltage
   float batVoltage    = 0.0f; // in V
   float batVoltageSag = 0.0f; // in V but saged
-  float batCapacity   = 0.0f; // in mAh
+  double batCapacity   = 0.0f; // in mAh
 
   SampleCurve batVoltageCurve{{
     {-0.06, 4.4  }, //allows overcharge
@@ -136,7 +146,7 @@ private:
     {0.04,  3.97 }, 
     {0.30,  3.82 },
     {0.40,  3.7  },
-    {1.0,   3.45 },
+    {1.0,   3.49 },
     {1.01,  3.4  },
     {1.03,  3.3  },
     {1.06,  3.0  },
@@ -152,6 +162,7 @@ private:
 
   static void update_rotation(double dt, StatePacket& state);
 
+  float motor_current(float volts, float kV);
   float motor_torque(float volts, float rpm, float kV, float R, float I0);
   float prop_thrust(float rpm, float vel);
   float prop_torque(float rpm, float vel);

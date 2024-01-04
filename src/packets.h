@@ -55,9 +55,12 @@ struct GpsData{
 struct InitPacket{
   PacketType type = PacketType::Init;
 
-  float motorKV[4] = {};
-  float motorR[4] = {};
-  float motorI0[4] = {};
+  float motorKV[4]    = {}; // KV
+  float motorR[4]     = {}; // resistance
+  float motorI0[4]    = {}; // idle current
+  float motorRth   = 0.0f; // thermal resistance (deg C per Watt)
+  float motorCth   = 0.0f; // thermal heat capacity (joules per deg C)
+  float motorMaxT  = 0.0f; // max temp in C when motor windings short out
 
   uint8_t propBladeCount = 0U;
   float propMaxRpm = 0.0f;
@@ -79,8 +82,9 @@ struct InitPacket{
   float quadBatCapacityCharged  = 0.0f;
   //battery capacacity rating
   float quadBatCapacity = 0.0f;
-  float maxAmpDraw = 0.0f;
   Vec3F quadMotorPos[4] {};
+
+  float ambientTemp = 0.0f;
 
   GpsData gps {};
 
@@ -131,6 +135,7 @@ struct StateUpdatePacket{
   Vec3F linearVelocity {};
 
   float motorRpm[4] {};
+  float motorT[4] {};
 };
 
 struct StateOsdUpdatePacket{
