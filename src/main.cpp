@@ -1,12 +1,10 @@
-//#include "packets.h"
-
-#include "sim.h"
+#include "sim/sim.h"
 #include <fmt/format.h>
 #include <chrono>
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
-//#include <unistd.h>
+
 
 Sim* sim = nullptr;
 

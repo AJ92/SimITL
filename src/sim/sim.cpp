@@ -33,7 +33,7 @@ namespace bf {
     #include "io/displayport_fake.h"
     #include "io/gps.h"
 
-    #include "src/target.h"
+    #include "target.h"
     #include "sensors/battery_fake.h"
 
     #include "build/debug.h"

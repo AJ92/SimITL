@@ -13,7 +13,7 @@ endif()
 
 if (WIN32)
     message("-- Win32 --")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj")  # -g -O0
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wa,-mbig-obj -g -O0")
     set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
 endif ()
 
@@ -23,7 +23,7 @@ if (GEN_COVERAGE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fprofile-arcs -ftest-coverage")
 endif ()
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 
 add_subdirectory(extern/fmt EXCLUDE_FROM_ALL)
 
@@ -31,8 +31,8 @@ add_subdirectory(extern/fmt EXCLUDE_FROM_ALL)
 add_subdirectory(extern/)
 
 set(SOURCE_FILES
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/SimplexNoise.cpp
-  ${CMAKE_CURRENT_SOURCE_DIR}/src/sim.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/util/SimplexNoise.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/sim/sim.cpp
 )
 
 add_library(libsitl OBJECT ${BETAFLIGHT_SOURCES} ${SOURCE_FILES})
@@ -48,11 +48,15 @@ target_compile_definitions(libsitl PUBLIC "FLASH_SIZE=2048")
 
 
 target_include_directories(libsitl PUBLIC extern)
-target_include_directories(libsitl PUBLIC extern/src/)
+target_include_directories(libsitl PUBLIC extern/betaflightext/src/main)
+target_include_directories(libsitl PUBLIC extern/betaflightext/src/main/target/simITL)
 target_include_directories(libsitl PUBLIC extern/betaflight/lib/main/dyad)
 target_include_directories(libsitl PUBLIC extern/betaflight/src/main)
 
-target_include_directories(libsitl PUBLIC extern/kissnet)
+target_include_directories(libsitl PUBLIC 
+  extern/kissnet
+  src
+)
 
 target_link_libraries(libsitl PUBLIC fmt-header-only)
 

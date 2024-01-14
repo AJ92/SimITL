@@ -169,18 +169,21 @@ set(BETAFLIGHT_SOURCES ${BETAFLIGHT_SOURCES}
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflight/lib/main/google/olc/olc.c"
 )
 
-file(GLOB BETAFLIGHT_G_SOURCES 
+file(GLOB BETAFLIGHT_PG_SOURCES 
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflight/src/main/pg/*.c"
+)
 
-  "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/drivers/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/io/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/scheduler/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/sensors/*.c"
+file(GLOB BETAFLIGHT_EXTENSIONS_SOURCES 
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/target/simITL/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/drivers/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/common/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/io/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/scheduler/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/sensors/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/blackbox/*.c"
 )
 
 set(BETAFLIGHT_SOURCES 
-  ${BETAFLIGHT_SOURCES} ${BETAFLIGHT_G_SOURCES}
+  ${BETAFLIGHT_SOURCES} ${BETAFLIGHT_PG_SOURCES} ${BETAFLIGHT_EXTENSIONS_SOURCES}
   PARENT_SCOPE
 )

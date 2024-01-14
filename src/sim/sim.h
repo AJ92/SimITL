@@ -5,12 +5,12 @@
 #include "winsock2.h"
 #endif
 
-#include "vector_math.h"
-#include "packets.h"
+#include "util/vector_math.h"
+#include "network/packets.h"
 
-#include "LowPassFilter.h"
-#include "SimplexNoise.h"
-#include "SampleCurve.h"
+#include "util/LowPassFilter.h"
+#include "util/SimplexNoise.h"
+#include "util/SampleCurve.h"
 
 #include <array>
 #include <cstdint>

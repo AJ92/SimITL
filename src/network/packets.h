@@ -5,7 +5,7 @@
   #include "winsock2.h"
 #endif
 
-#include "vector_math.h"
+#include "util/vector_math.h"
 
 #include <cstdint>
 #include <fmt/format.h>
