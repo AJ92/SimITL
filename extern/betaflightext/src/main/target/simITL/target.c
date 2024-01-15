@@ -323,9 +323,9 @@ void pwmWriteServo(uint8_t index, float value)
     //TODO: write pwm values to a state packet that can be send back
 }
 
-bool motorUpdateStartNull(void)
+void motorUpdateStartNull(void)
 {
-    return true;
+    return;
 }
 
 static motorDevice_t motorPwmDevice = {

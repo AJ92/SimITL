@@ -39,8 +39,9 @@ static int release(displayPort_t *displayPort) {
     return 0;
 }
 
-static int clearScreen(displayPort_t *displayPort) {
+static int clearScreen(displayPort_t *displayPort, displayClearOption_e options) {
     UNUSED(displayPort);
+    UNUSED(options);
     //printf("clearScreen\n");
 
     memset(osdBackBuffer, 0, 16 * 30);
@@ -59,19 +60,19 @@ static int clearScreen(displayPort_t *displayPort) {
     return 0;
 }
 
-static int drawScreen(displayPort_t *displayPort) {
+static bool drawScreen(displayPort_t *displayPort) {
     UNUSED(displayPort);
     //printf("drawScreen\n");
     memcpy(osdBackBuffer, osdBackground, 16 * 30);
-    uint8_t * sourceBuffer = osdForeground;
-    uint8_t * targetBuffer = osdBackBuffer;
+    uint8_t * sourceBuffer = (uint8_t*)osdForeground;
+    uint8_t * targetBuffer = (uint8_t*)osdBackBuffer;
     for (int i = 0; i < (VIDEO_LINES * CHARS_PER_LINE); i++) {
       if(sourceBuffer[i] != 0){
         targetBuffer[i] =  sourceBuffer[i];
       }
     }
     memcpy(osdScreen, osdBackBuffer, 16 * 30);
-    return 0;
+    return false;
 }
 
 static int screenSize(const displayPort_t *displayPort) {
@@ -87,13 +88,13 @@ static int writeString(displayPort_t *displayPort, uint8_t x, uint8_t y, uint8_t
     UNUSED(displayPort);
     //printf("writeString: x:%i y:%i %s\n", x, y, s);
 
-    uint8_t* targetBuffer = osdForeground;
+    uint8_t* targetBuffer = (uint8_t*)osdForeground;
     switch(currentLayer){
       case 0:
-        targetBuffer = osdForeground;
+        targetBuffer = (uint8_t*)osdForeground;
         break;
       case 1:
-        targetBuffer = osdBackground;
+        targetBuffer = (uint8_t*)osdBackground;
         break;
     }
 
@@ -112,13 +113,13 @@ static int writeChar(displayPort_t *displayPort, uint8_t x, uint8_t y, uint8_t a
     UNUSED(displayPort);
     //printf("writeChar: x:%i y%i %i\n", x, y, c);
 
-    uint8_t* targetBuffer = osdForeground;
+    uint8_t* targetBuffer = (uint8_t*)osdForeground;
     switch(currentLayer){
       case 0:
-        targetBuffer = osdForeground;
+        targetBuffer = (uint8_t*)osdForeground;
         break;
       case 1:
-        targetBuffer = osdBackground;
+        targetBuffer = (uint8_t*)osdBackground;
         break;
     }
 
