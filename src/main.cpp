@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 
-Sim* sim = nullptr;
+SimITL::Sim* sim = nullptr;
 
 void sigHandler(int s){
   printf("Caught signal %d\nShutting down...\n",s);
@@ -23,7 +23,7 @@ void clearline() {
 int main() {
     signal (SIGINT,sigHandler);
 
-    sim = &Sim::getInstance();
+    sim = &SimITL::Sim::getInstance();
 
     if(!sim->connect()){
       return 1;
@@ -35,60 +35,50 @@ int main() {
     while (sim->step()) {
       const auto now = hr_clock::now();
       const auto dtLastLog = now - lastLog;
-      long long logDelta = to_us(dtLastLog);
+      long long logDelta = SimITL::to_us(dtLastLog);
 
       // 1s
       if (logDelta > 1e6) {
         const auto elapsed_ms = now - start;
-        long long elapsedUs = to_us(elapsed_ms);
-        long long delta = sim->micros_passed - elapsedUs;
+        long long elapsedUs = SimITL::to_us(elapsed_ms);
 
         clearline();
         fmt::print(
-          "dt:     {:5.5f}, Sl/s: {:8.1f}, sch/s: {:8.1f}, avgST: {}, dis: {},\n" 
-          "angAcc: {:5.2f} {:5.2f} {:5.2f},\n"
+          "Sl/s:   {:8.1f}, sch/s: {:8.1f}, avgST: {}, dis: {},\n" 
           "curr:   {:5.2f} {:5.2f} {:5.2f} {:5.2f},\n"
           "temp:   {:5.2f} {:5.2f} {:5.2f} {:5.2f},\n"
           "krpm:   {:5.2f} {:5.2f} {:5.2f} {:5.2f},\n"
           "thrust: {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n"
           "ptorq:  {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n"
-          "mtorq:  {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n"
-          "aDrag:  {:5.3f} {:5.3f} {:5.3f}\n",
-          delta / 1e6,
+          "mtorq:  {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n",
           (float)sim->simSteps - (float)sim->bfSchedules,
           (float)sim->bfSchedules,
           sim->avgStepTime,
-          sim->armingDisabledFlags,
-          sim->angularAcceleration[0],
-          sim->angularAcceleration[1],
-          sim->angularAcceleration[2],
-          sim->motorsState[0].current,
-          sim->motorsState[1].current,
-          sim->motorsState[2].current,
-          sim->motorsState[3].current,
-          sim->motorsState[0].temp,
-          sim->motorsState[1].temp,
-          sim->motorsState[2].temp,
-          sim->motorsState[3].temp,
-          sim->motorsState[0].rpm / 1e3,
-          sim->motorsState[1].rpm / 1e3,
-          sim->motorsState[2].rpm / 1e3,
-          sim->motorsState[3].rpm / 1e3,
-          sim->motorsState[0].thrust / 9.81f,
-          sim->motorsState[1].thrust / 9.81f,
-          sim->motorsState[2].thrust / 9.81f,
-          sim->motorsState[3].thrust / 9.81f,
-          sim->motorsState[0].pTorque,
-          sim->motorsState[1].pTorque,
-          sim->motorsState[2].pTorque,
-          sim->motorsState[3].pTorque,
-          sim->motorsState[0].mTorque,
-          sim->motorsState[1].mTorque,
-          sim->motorsState[2].mTorque,
-          sim->motorsState[3].mTorque,
-          sim->angularDrag[0],
-          sim->angularDrag[1],
-          sim->angularDrag[2]
+          sim->mSimState.armingDisabledFlags,
+          sim->mSimState.motorsState[0].current,
+          sim->mSimState.motorsState[1].current,
+          sim->mSimState.motorsState[2].current,
+          sim->mSimState.motorsState[3].current,
+          sim->mSimState.motorsState[0].temp,
+          sim->mSimState.motorsState[1].temp,
+          sim->mSimState.motorsState[2].temp,
+          sim->mSimState.motorsState[3].temp,
+          sim->mSimState.motorsState[0].rpm / 1e3,
+          sim->mSimState.motorsState[1].rpm / 1e3,
+          sim->mSimState.motorsState[2].rpm / 1e3,
+          sim->mSimState.motorsState[3].rpm / 1e3,
+          sim->mSimState.motorsState[0].thrust / 9.81f,
+          sim->mSimState.motorsState[1].thrust / 9.81f,
+          sim->mSimState.motorsState[2].thrust / 9.81f,
+          sim->mSimState.motorsState[3].thrust / 9.81f,
+          sim->mSimState.motorsState[0].pTorque,
+          sim->mSimState.motorsState[1].pTorque,
+          sim->mSimState.motorsState[2].pTorque,
+          sim->mSimState.motorsState[3].pTorque,
+          sim->mSimState.motorsState[0].mTorque,
+          sim->mSimState.motorsState[1].mTorque,
+          sim->mSimState.motorsState[2].mTorque,
+          sim->mSimState.motorsState[3].mTorque
         );
 
         sim->simSteps = 0;

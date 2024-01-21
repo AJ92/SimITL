@@ -183,7 +183,6 @@ extern char* EEPROM_FILENAME;
 #define FLASH_PAGE_SIZE (0x400)
 
 // belows are internal stuff
-
 extern uint32_t SystemCoreClock;
 
 typedef enum
@@ -301,6 +300,10 @@ void FLASH_Unlock(void);
 void FLASH_Lock(void);
 FLASH_Status FLASH_ErasePage(uintptr_t Page_Address);
 FLASH_Status FLASH_ProgramWord(uintptr_t addr, uint32_t Data);
+
+// simulated time
+extern uint64_t micros_passed;
+extern int64_t sleep_timer;
 
 uint64_t nanos64_real(void);
 uint64_t micros64_real(void);

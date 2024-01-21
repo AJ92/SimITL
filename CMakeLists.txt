@@ -32,6 +32,8 @@ add_subdirectory(extern/)
 
 set(SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/src/util/SimplexNoise.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/sim/bf.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/src/sim/physics.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/src/sim/sim.cpp
 )
 

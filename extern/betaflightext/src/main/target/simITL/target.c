@@ -58,38 +58,22 @@ const timerHardware_t timerHardware[1]; // unused
 #include "rx/rx.h"
 
 #include "dyad.h"
-//#include "target/SITL/udplink.h"
 
 uint32_t SystemCoreClock;
+uint64_t micros_passed;
+int64_t sleep_timer;
 
 static struct timespec start_time;
 static double simRate = 1.0;
-//static pthread_t tcpWorker, udpWorker;
 static bool workerRunning = true;
-//static udpLink_t stateLink, pwmLink;
-//static pthread_mutex_t updateLock;
-//static pthread_mutex_t mainLoopLock;
+
 
 int timeval_sub(struct timespec *result, struct timespec *x, struct timespec *y);
 
 int lockMainPID(void)
 {
-    //return pthread_mutex_trylock(&mainLoopLock);
     return 0;
 }
-
-/*
-char *strcasestr(const char *haystack, const char *needle) {
-    int nLen = strlen(needle);
-    do {
-        if (!strncasecmp(haystack, needle, nLen)) {
-            return (char *)haystack;
-        }
-        haystack++;
-    } while (*haystack);
-    return NULL;
-}
-*/
 
 void timerInit(void)
 {
@@ -112,44 +96,6 @@ void indicateFailure(failureMode_e mode, int repeatCount)
     printf("Failure LED flash for: [failureMode]!!! %d\n", mode);
 }
 
-/*
-uint64_t micros64(void)
-{
-    static uint64_t last = 0;
-    static uint64_t out = 0;
-    uint64_t now = nanos64_real();
-
-    out += (now - last) * simRate;
-    last = now;
-
-    return out*1e-3;
-//    return micros64_real();
-}
-
-uint64_t millis64(void)
-{
-    static uint64_t last = 0;
-    static uint64_t out = 0;
-    uint64_t now = nanos64_real();
-
-    out += (now - last) * simRate;
-    last = now;
-
-    return out*1e-6;
-//    return millis64_real();
-}
-
-uint32_t micros(void)
-{
-    return micros64() & 0xFFFFFFFF;
-}
-
-uint32_t millis(void)
-{
-    return millis64() & 0xFFFFFFFF;
-}
-*/
-
 int32_t clockCyclesToMicros(int32_t clockCycles)
 {
     return clockCycles;
@@ -169,36 +115,6 @@ uint32_t getCycleCounter(void)
     return (uint32_t) (micros64() & 0xFFFFFFFF);
 }
 
-/*
-void microsleep(uint32_t usec)
-{
-    struct timespec ts;
-    ts.tv_sec = 0;
-    ts.tv_nsec = usec*1000UL;
-    
-    //TODO: fix ?
-    //while (nanosleep(&ts, &ts) == -1 && errno == EINTR) ;
-}
-
-void delayMicroseconds(uint32_t us)
-{
-    microsleep(us / simRate);
-}
-
-void delayMicroseconds_real(uint32_t us)
-{
-    microsleep(us);
-}
-
-void delay(uint32_t ms)
-{
-    uint64_t start = millis64();
-
-    while ((millis64() - start) < ms) {
-        microsleep(1000);
-    }
-}
-*/
 
 // Subtract the ‘struct timespec’ values X and Y,  storing the result in RESULT.
 // Return 1 if the difference is negative, otherwise 0.
@@ -275,8 +191,6 @@ static void pwmWriteMotor(uint8_t index, float value)
     if (index < MAX_SUPPORTED_MOTORS) {
         motorsPwm[index] = value - idlePulse;
     }
-
-    //TODO: write pwm values to a state packet that can be send back
 }
 
 static void pwmWriteMotorInt(uint8_t index, uint16_t value)
@@ -296,31 +210,15 @@ bool pwmIsMotorEnabled(uint8_t index)
 
 static void pwmCompleteMotorUpdate(void)
 {
-    // send to simulator
-    // for gazebo8 ArduCopterPlugin remap, normal range = [0.0, 1.0], 3D rang = [-1.0, 1.0]
-
     double outScale = 1000.0;
     if (featureIsEnabled(FEATURE_3D)) {
         outScale = 500.0;
     }
-
-    //pwmPkt.motor_speed[3] = motorsPwm[0] / outScale;
-    //pwmPkt.motor_speed[0] = motorsPwm[1] / outScale;
-    //pwmPkt.motor_speed[1] = motorsPwm[2] / outScale;
-    //pwmPkt.motor_speed[2] = motorsPwm[3] / outScale;
-
-    // get one "fdm_packet" can only send one "servo_packet"!!
-    //TODO: fix ?
-    //if (pthread_mutex_trylock(&updateLock) != 0) return;
-    //udpSend(&pwmLink, &pwmPkt, sizeof(servo_packet));
-//    printf("[pwm]%u:%u,%u,%u,%u\n", idlePulse, motorsPwm[0], motorsPwm[1], motorsPwm[2], motorsPwm[3]);
 }
 
 void pwmWriteServo(uint8_t index, float value)
 {
     servosPwm[index] = value;
-
-    //TODO: write pwm values to a state packet that can be send back
 }
 
 void motorUpdateStartNull(void)
@@ -522,4 +420,47 @@ void debugInit(void)
 void unusedPinsInit(void)
 {
     printf("unusedPinsInit\n");
+}
+
+
+void systemInit(void) {
+  printf("[system] Init...\n");
+  SystemCoreClock = 500 * 1000000;  // fake 500MHz
+  micros_passed = 0U;
+  sleep_timer = 0;
+}
+
+void systemReset(void) {
+  printf("[system] Reset!\n");
+  exit(0);
+}
+
+void systemResetToBootloader(bootloaderRequestType_e requestType){
+  printf("[system] ResetToBootloader!\n");
+  exit(1);
+}
+
+uint64_t micros64(void)
+{
+  return micros_passed;
+}
+
+uint32_t micros(void) {
+  return micros_passed & 0xFFFFFFFF;
+}
+
+uint32_t millis(void) {
+  return (micros_passed / 1000) & 0xFFFFFFFF;
+}
+
+void microsleep(uint32_t usec) {
+  sleep_timer = usec;
+}
+
+void delayMicroseconds(uint32_t usec) {
+  microsleep(usec);
+}
+
+void delay(uint32_t ms) {
+  microsleep(ms * 1000);
 }
