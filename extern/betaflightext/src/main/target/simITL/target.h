@@ -110,10 +110,12 @@ extern char* EEPROM_FILENAME;
 
 #define USE_PARAMETER_GROUPS
 
+#define USE_BEEPER
 #define USE_MAX7456
 #define USE_PWM_OUTPUT
 
 #define USE_RC_SMOOTHING_FILTER
+#define USE_BATTERY_VOLTAGE_SAG_COMPENSATION
 
 #undef USE_STACK_CHECK // I think SITL don't need this
 #undef USE_DASHBOARD

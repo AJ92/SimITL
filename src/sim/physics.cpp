@@ -1,4 +1,5 @@
 #include "physics.h"
+#include "bf.h"
 #include <fmt/format.h>
 #include "util/SimplexNoise.h"
 
@@ -104,9 +105,9 @@ namespace SimITL{
     mSimState->gyro = xform_inv(basis, angularVelocity);
 
     //todo: fix acceleration for fake acc ( else part of ifdef enables acc in black box explorer )
-    auto gravity_force = vec3{0, -9.81f * mSimState->initPacket.quadMass, 0};
+    //auto gravity_force = vec3{0, -9.81f * mSimState->initPacket.quadMass, 0};
     mSimState->acc =
-      xform_inv(basis, mSimState->acceleration - gravity_force) / std::max(mSimState->initPacket.quadMass, 0.01f);
+      xform_inv(basis, mSimState->acceleration) / std::max(mSimState->initPacket.quadMass, 0.01f);
   }
 
   void Physics::updatePhysics(double dt){
@@ -241,8 +242,8 @@ namespace SimITL{
 
     double currentmAs = currentSum / 3.6f;
 
-    // minimum 2.xW consumption + random fluctuation clamped to max 1mA/s to account for running electronics
-    const double mAMin = std::min(1.0, (2.0 + randf() * 0.5) / std::max(mSimState->batteryState.batVoltageSag, 0.01f));
+    // minimum consumption + random fluctuation clamped to max 1mA/s to account for running electronics
+    const double mAMin = std::min(0.2, (0.5 + randf() * 0.25) / std::max(mSimState->batteryState.batVoltageSag, 0.01f));
     currentmAs = std::max(currentmAs, mAMin );
 
 
@@ -274,6 +275,8 @@ namespace SimITL{
     motor.phase          = shiftedPhase(dt, rpmToHz(motor.rpm)       , motor.phase);
     motor.phaseHarmonic1 = shiftedPhase(dt, rpmToHz(motor.rpm) * 2.0f, motor.phaseHarmonic1);
     motor.phaseHarmonic2 = shiftedPhase(dt, rpmToHz(motor.rpm) * 3.0f, motor.phaseHarmonic2);
+
+    motor.phaseSlow      = shiftedPhase(dt, rpmToHz(motor.rpm) * 0.01f, motor.phaseSlow);
 
     float sinPhase = sinf(motor.phase);
     float sinPhaseH1 = sinf(motor.phaseHarmonic1);
@@ -427,7 +430,7 @@ namespace SimITL{
     copy(linVel, state.linearVelocity);
     const auto vel = std::max(0.0f, dot(linVel, up));
 
-    constexpr float maxEffectSpeed = 15.0f; // m/s
+    constexpr float maxEffectSpeed = 15.0f; // m/s 15m/s = 54km/h
     const float speed = std::abs(length(linVel)); // m/s
     float speedFactor = std::min(speed / maxEffectSpeed, 1.0f);
 
@@ -447,13 +450,21 @@ namespace SimITL{
       
       // positive value depending on how much thrust is given against actual movement direction of quad
       float reverseThrust = std::max(0.0f, dot(normalize(linVel), normalize(motors[i].thrust * up) * -1.0f));
-      // keep between 0.0 and 1.0, takes 25% that point the most against movement direction
-      reverseThrust = std::max(0.0f, reverseThrust - 0.75f) * 4.0f;
+      // keep between 0.0 and 1.0, takes 50% that point the most against movement direction
+      reverseThrust = std::max(0.0f, reverseThrust - 0.5f) * 2.0f;
       reverseThrust = reverseThrust * reverseThrust;
-      float propWashNoise = std::max(0.0f, 0.5f * (SimplexNoise::noise(reverseThrust * speed * motors[i].thrust) + 1.0f));
+
+      float speedCompressed = static_cast<float>(static_cast<int>(speed)) / maxEffectSpeed;
+      float motorPhaseCompressed = static_cast<float>(static_cast<int>(motors[i].phaseSlow * 3.0f)) /  3.0f;
+
+      float propWashNoise = motors[i].propWashLowPassFilter.update( 
+        std::max(0.0f, 0.5f * (SimplexNoise::noise(motorPhaseCompressed) + 1.0f)), 
+        dt, 
+        120.0f
+      );
 
       // 1.0 - effect
-      float propwashEffect = 1.0f - ((propWashNoise * reverseThrust * 0.95f) * speedFactor);
+      float propwashEffect = 1.0f - (speedFactor * propWashNoise * reverseThrust * 0.95f);
 
       // 1.0 - effect
       float propDamageEffect = 1.0f - (std::max(0.0f, 0.5f * (SimplexNoise::noise(motors[i].phase * speed) + 1.0f)) * state.propDamage[i]);
@@ -472,11 +483,11 @@ namespace SimITL{
       //prevents remaining low rpm during disarm
       const auto initalCurrentThres = I0 * armed;
 
-      const auto volts = mSimState->motorPwmLowPassFilter[i].update(motors[i].pwm, dt, 120.0f) * vbat;
+      const auto volts = motors[i].pwmLowPassFilter.update(motors[i].pwm, dt, 120.0f) * vbat;
       const auto mTorque = motorTorque(volts, rpm, kV, R, initalCurrentThres) * 0.833f * propDamageEffect;
       auto current       = motorCurrent(mTorque, kV);
       const auto pTorque = propTorque(rpm, vel) * propHealthTorqueFactor;
-      const auto netTorque = mTorque - pTorque; // motor efficiency reduces torque
+      const auto netTorque = mTorque - pTorque;
 
       const auto domega = netTorque / std::max(mSimState->initPacket.propInertia, 0.00000001f);
       const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
@@ -514,14 +525,14 @@ namespace SimITL{
         motors[i].burnedOut = true;
       }
 
-      /*
       if(i == 0){
-        BF_DEBUG_SET(BF::DEBUG_SIM, 0, reverseThrust    * 1000);
-        BF_DEBUG_SET(BF::DEBUG_SIM, 1, speedFactor      * 1000);
-        BF_DEBUG_SET(BF::DEBUG_SIM, 2, propwashEffect   * 1000);
-        BF_DEBUG_SET(BF::DEBUG_SIM, 3, motors[i].thrust * 1000);
+        BF::setDebugValue(E_DEBUG_SIM, 0, reverseThrust    * 1000);
+        BF::setDebugValue(E_DEBUG_SIM, 1, speedFactor      * 1000);
+        BF::setDebugValue(E_DEBUG_SIM, 2, propWashNoise    * 1000);
+        BF::setDebugValue(E_DEBUG_SIM, 3, propwashEffect   * 1000);
+        BF::setDebugValue(E_DEBUG_SIM, 4, motors[i].thrust * 1000);
       }
-      */
+      
     }
 
     return resPropTorque;

@@ -258,6 +258,7 @@ namespace SimITL{
         std::lock_guard<std::mutex> guard(rcMutex);
         // updates betaflight data and schedules bf update
         if(BF::update(DELTA, mSimState)){
+          mSimState.stateUpdatePacket.beep =  mSimState.beep;
           bfSchedules++;
         }
       }

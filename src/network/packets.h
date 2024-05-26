@@ -136,6 +136,8 @@ struct StateUpdatePacket{
 
   float motorRpm[4] {};
   float motorT[4] {};
+
+  bool beep = false;
 };
 
 struct StateOsdUpdatePacket{

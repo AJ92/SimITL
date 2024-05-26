@@ -40,6 +40,8 @@ namespace SimITL{
     vec3 position = {0.0f, 0.0f, 0.0f};
     // pwm signal in percent [0,1]
     float pwm = 0.0f;
+    //low pass filtered pwm value
+    LowPassFilter pwmLowPassFilter{};
     // motor core temp in deg C
     float temp = 0.0f;
     // current running through motor in Amps
@@ -53,12 +55,17 @@ namespace SimITL{
     // propeller torque, counter acting motor torque
     float pTorque = 0.0f;
 
+    // low pass filtered prop wash
+    LowPassFilter propWashLowPassFilter{};
+
     // sinusoidal phase of the motor rotation used for noise simulation
     float phase = 0.0f;
     // phase freq * 2
     float phaseHarmonic1 = 0.0f;
     // phase freq * 3
     float phaseHarmonic2 = 0.0f;
+    // phase freq * 0.01f
+    float phaseSlow = 0.0f;
 
     // is the motor destroyed by over temp
     bool burnedOut = false;
@@ -96,6 +103,8 @@ namespace SimITL{
     bool armed = false;
     int armingDisabledFlags = 0;
 
+    bool beep = false;
+
     bool osdChanged = false;
 
     // rc data
@@ -112,7 +121,6 @@ namespace SimITL{
     vec3 combinedNoise{0, 0, 0};
 
     LowPassFilter gyroLowPassFilter[3]{};
-    LowPassFilter motorPwmLowPassFilter[4]{};
 
     // gyro / acc
     quat rotation{1, 0, 0, 1};

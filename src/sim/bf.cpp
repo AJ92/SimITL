@@ -29,6 +29,8 @@ namespace SimITL{
       #include "drivers/accgyro/accgyro_virtual.h"
       #include "drivers/pwm_output.h"
       #include "drivers/pwm_output_fake.h"
+      #include "drivers/sound_beeper.h"
+
       #include "sensors/current.h"
 
       //added, not sure if needed
@@ -49,7 +51,7 @@ namespace SimITL{
       #define BF_DEBUG_SET(mode, index, value) do { if (BF::debugMode == (mode)) { BF::debug[(index)] = (value); } } while (0)
 
       void EnableState(stateFlags_t mask) {
-          stateFlags |= mask;
+        stateFlags |= mask;
       }
 
       // rc data
@@ -58,8 +60,8 @@ namespace SimITL{
 
       static float rxRcReadData(const BF::rxRuntimeState_t *rxRuntimeState, uint8_t channel)
       {
-          UNUSED(rxRuntimeState);
-          return rcDataCache[channel];
+        UNUSED(rxRuntimeState);
+        return rcDataCache[channel];
       }
 
       static uint32_t rxRcFrameTimeUs(void)
@@ -69,8 +71,8 @@ namespace SimITL{
 
       static uint8_t rxRcFrameStatus(BF::rxRuntimeState_t *rxRuntimeState)
       {
-          UNUSED(rxRuntimeState);
-          return BF::RX_FRAME_COMPLETE;
+        UNUSED(rxRuntimeState);
+        return BF::RX_FRAME_COMPLETE;
       }
 
       extern uint64_t micros_passed;
@@ -232,11 +234,13 @@ namespace SimITL{
       simState.motorsState[2].pwm = BF::motorsPwm[2] / 1000.0f;
       simState.motorsState[3].pwm = BF::motorsPwm[3] / 1000.0f;
 
+      simState.beep = BF::getBeeper();
+      simState.stateUpdatePacket.beep =  simState.beep;
+
       return schedulerExecuted;
     }
 
-    template <class A, class B, class C>
-    void setDebugValue(A mode, B index, C value){
+    void setDebugValue(uint8_t mode, uint8_t index, int16_t value){
       BF_DEBUG_SET(mode, index, value);
     }
   } // namespace bf

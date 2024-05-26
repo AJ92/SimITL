@@ -8,12 +8,15 @@
 #ifndef BF_H
 #define BF_H
 
+#define E_DEBUG_SIM 90
+
 namespace SimITL{
   namespace BF{
     extern "C" {
       // betaflight's init
       extern void init(void);
       extern void scheduler(void);
+      extern bool getBeeper(void);
     }
 
     /**
@@ -50,8 +53,7 @@ namespace SimITL{
      * \param[in] index The index.
      * \param[in] value The value.
      */
-    template <class A, class B, class C>
-    void setDebugValue(A mode, B index, C value);
+    void setDebugValue(uint8_t mode, uint8_t index, int16_t value);
   }
 }
 

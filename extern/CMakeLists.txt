@@ -63,7 +63,7 @@ set(BETAFLIGHT_SOURCES
   drivers/mco.c
   drivers/pinio.c
   drivers/resource.c
-  drivers/sound_beeper.c
+  #drivers/sound_beeper.c
   drivers/bus_i2c_busdev.c
   drivers/bus_i2c_soft.c
   drivers/vtx_common.c
