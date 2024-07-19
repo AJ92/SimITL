@@ -226,7 +226,7 @@ namespace SimITL{
 
       updateOsd(simState);
 
-      simState.armed = (BF::armingFlags & (BF::ARMED)) == 0;
+      simState.armed = (BF::armingFlags & BF::ARMED) == BF::ARMED;
       simState.armingDisabledFlags = (int)BF::getArmingDisableFlags();
       simState.microsPassed = BF::micros_passed;
       simState.motorsState[0].pwm = BF::motorsPwm[0] / 1000.0f;

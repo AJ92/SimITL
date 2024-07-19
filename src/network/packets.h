@@ -17,10 +17,9 @@ enum PacketType : int32_t {
   State           = 2U,
   StateUpdate     = 3U,
   StateOsdUpdate  = 4U,
-  Rc              = 5U,
 
   //count of types
-  Count           = 6U
+  Count           = 5U
 };
 
 enum CommandType : int32_t {
@@ -92,11 +91,14 @@ struct InitPacket{
   uint8_t eepromName[32] = {};
 };
 
-//runtime quad parameters.
+//runtime quad parameters - simulation input
 struct StatePacket{
   PacketType type = PacketType::State;
 
   float delta = 0.0f;
+
+  float rcData[8] {};
+
   Vec3F position {};
   Vec3F rotation[3] {};
 
@@ -127,6 +129,7 @@ struct StatePacket{
   int32_t commands = 0;
 };
 
+//simulation output for game
 struct StateUpdatePacket{
   PacketType type = PacketType::StateUpdate;
 
@@ -146,43 +149,22 @@ struct StateOsdUpdatePacket{
   uint8_t osd[16*30] {};
 };
 
-// rc data needs own refresh rate and is seperate
-struct StateRcUpdatePacket{
-  PacketType type = PacketType::Rc;
-
-  float delta = 0.0f;
-  float rcData[8] {};
-};
-
 // copies data to the type struct...
-template <typename T>
-bool convert(T& out, const std::byte * data, const size_t length){
+template <typename T, size_t buff_size>
+bool convert(T& out, const std::array<std::byte, buff_size>& buf, const size_t length){
   bool success = false;
   size_t packetSize = sizeof(T);
-  if(length <= packetSize){
-    memcpy(&out, data, sizeof(T));
+  if(packetSize <= length){
+    memcpy(&out, &buf[0], sizeof(T));
     success = true;
   }
   return success;
 }
 
-template <typename T>
-auto receive(kissnet::udp_socket& recv_socket){
-  std::array<std::byte, 2 * sizeof(T)> buf;
+template <size_t buff_size>
+size_t receive(kissnet::udp_socket& recv_socket, std::array<std::byte, buff_size>& buf){
   auto [len, socketStatus] = recv_socket.recv(buf);
-
-  T packet;
-
-  //error
-  if(socketStatus != 0){
-    bool success = convert(packet, &buf[0], len);
-    if(!success){
-      packet.type = PacketType::Error;
-    }
-  }
-
-  return packet;
+  return (socketStatus != 0)? len : 0;
 }
-
 
 #endif

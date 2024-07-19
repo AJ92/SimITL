@@ -17,7 +17,6 @@ namespace SimITL{
 
   Sim::Sim()
     : recv_state_socket(kissnet::endpoint("localhost", 30713))
-    , recv_rcdat_socket(kissnet::endpoint("localhost", 30714))
     , send_state_socket(kissnet::endpoint("localhost", 30715)) 
   {
     mPhysics.setSimState(&mSimState);
@@ -26,10 +25,8 @@ namespace SimITL{
     u_long opt = 1;
     int32_t SioUdpConnreset = IOC_IN | IOC_VENDOR | 12;
     ioctlsocket(recv_state_socket, SioUdpConnreset, &opt);
-    ioctlsocket(recv_rcdat_socket, SioUdpConnreset, &opt);
   #endif
     recv_state_socket.bind();
-    recv_rcdat_socket.bind();
   }
 
   Sim& Sim::getInstance() {
@@ -53,16 +50,6 @@ namespace SimITL{
     }
   }
 
-  void updRcUpdateThread(Sim * sim){
-    auto lastUpdate = hr_clock::now();
-    while(sim->udpRcUpdate() && sim->running){
-      
-      const auto updateDone = hr_clock::now();
-      const auto diff = updateDone - lastUpdate;
-      int diffus = (int) to_us(diff);
-    }
-  }
-
   bool Sim::connect() {
 
     if(!networkingInitialized){
@@ -77,19 +64,28 @@ namespace SimITL{
     running = true;
     fmt::print("Waiting for init packet\n");
 
+    
+
+    PacketType type = PacketType::Error;
     InitPacket initPacket = {};
     bool receivedInitPackage = false;
-    while(!receivedInitPackage){
-      initPacket = receive<InitPacket>(recv_state_socket);
-      if (initPacket.type == PacketType::Error) {
-        fmt::print("Error receiving init packet\n");
-      }
-      else{
-        receivedInitPackage = true;
-      }
-    }
 
-    mPhysics.initState(initPacket);
+    while(!receivedInitPackage){
+      const size_t len = receive(recv_state_socket, stateReceptionBuffer);
+      //probe for packet type
+      if (!convert(type, stateReceptionBuffer, len) || type != PacketType::Init) {
+        fmt::print("Error receiving init packet\n");
+        continue;
+      }
+
+      if(!convert(initPacket, stateReceptionBuffer, len)){
+        fmt::print("Error converting init packet\n");
+        continue;
+      }
+
+      mPhysics.initState(initPacket);
+      receivedInitPackage = true;
+    }
 
     //non blocking
     dyad_setUpdateTimeout(0.0);
@@ -111,22 +107,27 @@ namespace SimITL{
 
     // receive first state in sync to init the state
     bool receivedInitialState = false;
+    StatePacket state = {};
     while(!receivedInitialState){
-      auto state = receive<StatePacket>(recv_state_socket);
-      if (state.type == PacketType::Error) {
+      const size_t len = receive(recv_state_socket, stateReceptionBuffer);
+
+      //probe for packet type
+      if (!convert(type, stateReceptionBuffer, len) || type != PacketType::State) {
         fmt::print("Error receiving initial state\n");
-        //return false;
+        continue;
       }
-      else{
-        mPhysics.updateState(state);
-        receivedInitialState = true;
+
+      if (!convert(state, stateReceptionBuffer, len)){
+        fmt::print("Error converting initial state packet\n");
+        continue;
       }
+      
+      mPhysics.updateState(state);
+      receivedInitialState = true;
     }
 
     fmt::print("Starting udp update threads\n");
-    //stateUdpThread = std::thread(&Sim::udpUpdate, this);
     stateUdpThread = std::thread(updStateUpdateThread, this);
-    rcUdpThread = std::thread(updRcUpdateThread, this);
 
     return true;
   }
@@ -148,35 +149,41 @@ namespace SimITL{
       }
     }
 
-    auto state = receive<StatePacket>(recv_state_socket);
-    if (state.type == PacketType::Error) {
-      fmt::print("Error receiving StatePacket packet\n");
+
+    const size_t len = receive(recv_state_socket, stateReceptionBuffer);
+
+    PacketType type = PacketType::Error;
+
+    //probe for packet type
+    if (!convert(type, stateReceptionBuffer, len) || type == PacketType::Error) {
       return true;
     }
 
-    if((state.commands & CommandType::Stop) == CommandType::Stop){
-      fmt::print("Stop command received\n");
-      running = false;
-      false;
-    }
-
-    std::lock_guard<std::mutex> guard(statePacketMutex);
-    if((receivedStatePacketQueue.size() < maxQueueSize)){
-      receivedStatePacketQueue.push(state);
-    }
-
-    return true;
-  }
-
-  bool Sim::udpRcUpdate(){ 
-    auto state = receive<StateRcUpdatePacket>(recv_rcdat_socket);
-    if (state.type == PacketType::Error) {
-      fmt::print("Error receiving StateRcUpdatePacket packet\n");
+    if(type == PacketType::Init){
+      InitPacket initPacket = {};
+      if(convert(initPacket, stateReceptionBuffer, len)){
+        mPhysics.initState(initPacket);
+      }
       return true;
     }
 
-    std::lock_guard<std::mutex> guard(rcMutex);
-    BF::setRcData(state.rcData);
+    if(type == PacketType::State){
+      StatePacket statePacket = {};
+      if(convert(statePacket, stateReceptionBuffer, len)){
+        std::lock_guard<std::mutex> guard(statePacketMutex);
+        if((receivedStatePacketQueue.size() < maxQueueSize)){
+          receivedStatePacketQueue.push(statePacket);
+        }
+
+        if((statePacket.commands & CommandType::Stop) == CommandType::Stop){
+          fmt::print("Stop command received\n");
+          running = false;
+          false;
+        }
+      }
+      return true;
+    }
+    
     return true;
   }
 
@@ -193,6 +200,8 @@ namespace SimITL{
 
     std::lock_guard<std::mutex> guard(statePacketMutex);
     while(receivedStatePacketQueue.size() > 0){
+
+      statePacketsReceived++;
 
       //calculate time diff
       const auto now = hr_clock::now();
@@ -225,6 +234,9 @@ namespace SimITL{
       
       total_delta += stateUpdateDelta;
 
+      //update rc data
+      BF::setRcData(statePacketUpdate.rcData);
+
       mPhysics.updateState(statePacketUpdate);
       
       receivedStatePacketQueue.pop();
@@ -247,22 +259,17 @@ namespace SimITL{
   }
 
   bool Sim::simStep() {
-
     for (auto k = 0u; (total_delta - DELTA) >= 0; k++) {
       total_delta -= DELTA;
       const double dt = static_cast<double>(DELTA) / 1e6f;
 
       mPhysics.updateGyro(dt);
-
-      {// guard rc data updates from multi thread access
-        std::lock_guard<std::mutex> guard(rcMutex);
-        // updates betaflight data and schedules bf update
-        if(BF::update(DELTA, mSimState)){
-          mSimState.stateUpdatePacket.beep =  mSimState.beep;
-          bfSchedules++;
-        }
+  
+      // updates betaflight data and schedules bf update
+      if(BF::update(DELTA, mSimState)){
+        bfSchedules++;
       }
-
+      
       simSteps++;
 
       mPhysics.updatePhysics(dt);
@@ -275,7 +282,6 @@ namespace SimITL{
     running = false;
 
     recv_state_socket.close();
-    recv_rcdat_socket.close();
     send_state_socket.close();
 
     if(stateUdpThread.joinable()){

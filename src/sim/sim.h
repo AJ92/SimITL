@@ -54,8 +54,6 @@ namespace SimITL{
     bool connect();
     // udp update thread
     bool udpStateUpdate();
-    // udp rc thread
-    bool udpRcUpdate();
     // sim update step
     bool step();
     //stop threads
@@ -66,6 +64,7 @@ namespace SimITL{
 
     uint64_t getMicrosPassed();
 
+    int64_t statePacketsReceived = 0;
     int64_t simSteps = 0;
     int64_t bfSchedules = 0;
     int64_t avgStepTime = 100;
@@ -80,6 +79,8 @@ namespace SimITL{
   private:
     // state update mutex (reception is in seperate thread)
     std::mutex statePacketMutex;
+
+    std::array<std::byte, 2048> stateReceptionBuffer{};
     
     // state update from rendering side
     std::queue<StatePacket> receivedStatePacketQueue {};
@@ -89,8 +90,6 @@ namespace SimITL{
     std::queue<StateUpdatePacket> sendStateUpdatePacketQueue {};
     std::queue<StateOsdUpdatePacket> sendStateOsdUpdatePacketQueue {};
 
-    // rc update mutex (reception is in seperate thread)
-    std::mutex rcMutex;
     uint16_t rc_data[16] {};
     uint32_t rcDataReceptionTimeUs;
 
@@ -107,7 +106,6 @@ namespace SimITL{
     double batCapacity   = 0.0f; // in mAh
 
     kissnet::udp_socket recv_state_socket;
-    kissnet::udp_socket recv_rcdat_socket;
     kissnet::udp_socket send_state_socket;
 
     std::thread stateUdpThread{};

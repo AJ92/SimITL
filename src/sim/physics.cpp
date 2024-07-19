@@ -104,10 +104,9 @@ namespace SimITL{
 
     mSimState->gyro = xform_inv(basis, angularVelocity);
 
-    //todo: fix acceleration for fake acc ( else part of ifdef enables acc in black box explorer )
-    //auto gravity_force = vec3{0, -9.81f * mSimState->initPacket.quadMass, 0};
-    mSimState->acc =
-      xform_inv(basis, mSimState->acceleration) / std::max(mSimState->initPacket.quadMass, 0.01f);
+    //todo: validate and fix gyro attitude setup.
+    auto gravity_acceleration = vec3{0, -9.81f, 0};
+    mSimState->acc = xform_inv(basis, mSimState->acceleration + gravity_acceleration);
   }
 
   void Physics::updatePhysics(double dt){

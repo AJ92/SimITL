@@ -44,16 +44,17 @@ int main() {
 
         clearline();
         fmt::print(
-          "Sl/s:   {:8.1f}, sch/s: {:8.1f}, avgST: {}, dis: {},\n" 
+          "Sl/s:   {:8.1f}, sch/s: {:8.1f}, avgST: {}, arm: {}, dis: {},\n" 
           "curr:   {:5.2f} {:5.2f} {:5.2f} {:5.2f},\n"
           "temp:   {:5.2f} {:5.2f} {:5.2f} {:5.2f},\n"
           "krpm:   {:5.2f} {:5.2f} {:5.2f} {:5.2f},\n"
           "thrust: {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n"
           "ptorq:  {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n"
           "mtorq:  {:5.3f} {:5.3f} {:5.3f} {:5.3f},\n",
-          (float)sim->simSteps - (float)sim->bfSchedules,
+          (float)sim->statePacketsReceived,
           (float)sim->bfSchedules,
           sim->avgStepTime,
+          sim->mSimState.armed,
           sim->mSimState.armingDisabledFlags,
           sim->mSimState.motorsState[0].current,
           sim->mSimState.motorsState[1].current,
@@ -83,6 +84,7 @@ int main() {
 
         sim->simSteps = 0;
         sim->bfSchedules = 0;
+        sim->statePacketsReceived = 0;
         lastLog = now;
       }
 
