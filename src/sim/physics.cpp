@@ -429,7 +429,7 @@ namespace SimITL{
     copy(linVel, state.linearVelocity);
     const auto vel = std::max(0.0f, dot(linVel, up));
 
-    constexpr float maxEffectSpeed = 15.0f; // m/s 15m/s = 54km/h
+    constexpr float maxEffectSpeed = 18.0f; // m/s 18m/s = 64.8km/h
     const float speed = std::abs(length(linVel)); // m/s
     float speedFactor = std::min(speed / maxEffectSpeed, 1.0f);
 
