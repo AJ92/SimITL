@@ -108,8 +108,8 @@ namespace SimITL{
     kissnet::udp_socket recv_state_socket;
     kissnet::udp_socket send_state_socket;
 
+    std::thread tcpThread{};
     std::thread stateUdpThread{};
-    std::thread rcUdpThread{};
 
     static void update_rotation(double dt, StatePacket& state);
 

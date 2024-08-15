@@ -35,10 +35,24 @@ namespace SimITL{
   }
 
   Sim::~Sim() {
-    dyad_shutdown();
+    //dyad_shutdown();
   }
 
   std::chrono::system_clock::time_point start;
+
+  void tcpUpdateThread(Sim * sim){
+    dyad_init();
+    //dyad_setTickInterval(0.2f);
+    dyad_setUpdateTimeout(0.0f);
+
+    while (sim->running) {
+        dyad_update();
+         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+
+    dyad_shutdown();
+    fmt::print("tcpThread end!!\n");
+  }
 
   void updStateUpdateThread(Sim * sim){
     auto lastUpdate = hr_clock::now();
@@ -51,20 +65,13 @@ namespace SimITL{
   }
 
   bool Sim::connect() {
-
-    if(!networkingInitialized){
-      fmt::print("Initializing dyad\n");
-      dyad_init();
-      networkingInitialized = true;
-    }
-
-    //blocking
-    dyad_setUpdateTimeout(1.0);
-
     running = true;
-    fmt::print("Waiting for init packet\n");
 
-    
+    fmt::print("Starting tcp update threads\n");
+    tcpThread = std::thread(tcpUpdateThread, this);
+
+
+    fmt::print("Waiting for init packet\n");
 
     PacketType type = PacketType::Error;
     InitPacket initPacket = {};
@@ -88,7 +95,7 @@ namespace SimITL{
     }
 
     //non blocking
-    dyad_setUpdateTimeout(0.0);
+    //dyad_setUpdateTimeout(0.0);
 
     //reset rc data to valid data...
     BF::resetRcData();
@@ -192,7 +199,7 @@ namespace SimITL{
   std::chrono::system_clock::time_point lastStepTime;
 
   bool Sim::step() {
-    dyad_update();
+    //dyad_update();
 
     if(!mPhysics.checkSimState()){
       return false; // no SimState, no sim!
@@ -284,6 +291,9 @@ namespace SimITL{
     recv_state_socket.close();
     send_state_socket.close();
 
+    if(tcpThread.joinable()){
+      tcpThread.join();
+    }
     if(stateUdpThread.joinable()){
       stateUdpThread.join();
     }

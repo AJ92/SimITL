@@ -479,11 +479,9 @@ namespace SimITL{
       float vbat = std::max(1.0f, mSimState->batteryState.batVoltageSag);
 
       float armed = mSimState->armed ? 0.0f : 1.0f;
-      //prevents remaining low rpm during disarm
-      const auto initalCurrentThres = I0 * armed;
 
       const auto volts = motors[i].pwmLowPassFilter.update(motors[i].pwm, dt, 120.0f) * vbat;
-      const auto mTorque = motorTorque(volts, rpm, kV, R, initalCurrentThres) * 0.833f * propDamageEffect;
+      const auto mTorque = motorTorque(volts, rpm, kV, R, I0) * 0.833f * propDamageEffect;
       auto current       = motorCurrent(mTorque, kV);
       const auto pTorque = propTorque(rpm, vel) * propHealthTorqueFactor;
       const auto netTorque = mTorque - pTorque;
