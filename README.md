@@ -12,12 +12,22 @@ While SimITL is a virtual betaflight flight controller, it only outputs the quad
 
 [pr0p](https://pr0p.dev/) is currently developed along with SimITL as a racing simulator.
 
-# build
+# windows build from a linux host
 
 ```
 cd build
 
 cmake -S ../ -B ./ -DCMAKE_TOOLCHAIN_FILE=../cmake/windows.cmake -D CMAKE_BUILD_TYPE=Release
+
+make -j 16
+```
+
+# linux build
+
+```
+cd build
+
+cmake -S ../ -B ./ -D CMAKE_BUILD_TYPE=Release
 
 make -j 16
 ```

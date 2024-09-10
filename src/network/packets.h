@@ -8,7 +8,7 @@
 #include "util/vector_math.h"
 
 #include <cstdint>
-#include <fmt/format.h>
+//#include <fmt/format.h>
 #include <kissnet.hpp>
 
 enum PacketType : int32_t {

@@ -78,6 +78,10 @@ namespace SimITL{
     bool receivedInitPackage = false;
 
     while(!receivedInitPackage){
+      if(stopped){
+        return false; // handle interrupt
+      }
+
       const size_t len = receive(recv_state_socket, stateReceptionBuffer);
       //probe for packet type
       if (!convert(type, stateReceptionBuffer, len) || type != PacketType::Init) {
@@ -297,6 +301,7 @@ namespace SimITL{
     if(stateUdpThread.joinable()){
       stateUdpThread.join();
     }
+    
     stopped = true;
   }
 

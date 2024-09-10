@@ -1,5 +1,6 @@
-# Betaflight sources for cmake
+add_subdirectory(fmt EXCLUDE_FROM_ALL)
 
+# Betaflight sources for cmake
 
 set(BETAFLIGHT_SOURCES
   build/build_config.c
@@ -68,7 +69,6 @@ set(BETAFLIGHT_SOURCES
   drivers/bus_i2c_soft.c
   drivers/vtx_common.c
   drivers/vtx_table.c
-
 
   fc/init.c
 
@@ -155,7 +155,7 @@ set(BETAFLIGHT_SOURCES
   msp/msp_serial.c
 
   cli/cli.c
-  cli/settings.c
+  #cli/settings.c
 
   blackbox/blackbox.c
   blackbox/blackbox_encoding.c
@@ -176,14 +176,45 @@ file(GLOB BETAFLIGHT_PG_SOURCES
 file(GLOB BETAFLIGHT_EXTENSIONS_SOURCES 
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/target/simITL/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/drivers/*.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/cli/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/common/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/io/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/scheduler/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/sensors/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/blackbox/*.c"
+
+  "${CMAKE_CURRENT_SOURCE_DIR}/sitl.h"
 )
 
 set(BETAFLIGHT_SOURCES 
   ${BETAFLIGHT_SOURCES} ${BETAFLIGHT_PG_SOURCES} ${BETAFLIGHT_EXTENSIONS_SOURCES}
-  PARENT_SCOPE
+  #PARENT_SCOPE
 )
+
+
+add_library(
+  sitl 
+  #OBJECT
+  STATIC
+  #SHARED won't work as pg code has to be part of the binary and is missing if shared
+  ${BETAFLIGHT_SOURCES} 
+)
+target_compile_features(sitl PUBLIC cxx_std_17)
+
+target_compile_definitions(sitl PUBLIC "SITL")
+target_compile_definitions(sitl PUBLIC "__TARGET__=\"SimITL\"")
+target_compile_definitions(sitl PUBLIC "__REVISION__=\"1\"")
+
+target_compile_definitions(sitl PUBLIC SIMULATOR_BUILD)
+target_compile_definitions(sitl PUBLIC "HSE_VALUE=8000000")
+target_compile_definitions(sitl PUBLIC "FLASH_SIZE=2048")
+
+
+#target_include_directories(sitl PUBLIC extern)
+target_include_directories(sitl PUBLIC betaflightext/src/main)
+target_include_directories(sitl PUBLIC betaflightext/src/main/target/simITL)
+target_include_directories(sitl PUBLIC betaflight/lib/main/dyad)
+target_include_directories(sitl PUBLIC betaflight/src/main)
+
+
+target_link_libraries(sitl PUBLIC fmt-header-only)
