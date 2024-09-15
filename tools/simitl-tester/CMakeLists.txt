@@ -13,19 +13,21 @@ add_executable(simitl-tester
 target_include_directories(simitl-tester PUBLIC 
   "../../src"
   "../../extern"
-  "../../extern/kissnet"
 )
 
 target_compile_features(simitl-tester PUBLIC cxx_std_17)
 
 if (UNIX)
-  target_link_libraries(simitl-tester PUBLIC -lpthread)
+  target_link_libraries(simitl-tester PUBLIC -lpthread -lrt)
 endif (UNIX)
 
 
 if (WIN32)
-  target_link_libraries(simitl-tester PUBLIC wsock32 ws2_32)
+  target_link_libraries(simitl-tester PUBLIC user32 kernel32)
 endif (WIN32)
 
-target_link_libraries(simitl-tester PUBLIC fmt-header-only)
+target_link_libraries(simitl-tester PUBLIC 
+  fmt-header-only 
+  simitlsharedmem   # shared mem for game client communication
+)
 

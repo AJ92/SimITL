@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.3)
-#Sim 
-project(Sim)
+project(SimITL)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -26,11 +25,15 @@ endif ()
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")
 
-# simitl library
+# simitl lib 
+#  used by the SimITL executable which contains the betaflight sitl target and extensions
 add_subdirectory(extern/)
 
 # SimITL executable
 add_subdirectory(src/)
+
+# SimITL shared memory lib for game clients to interface with a running SimITL process
+add_subdirectory(lib/)
 
 # SimITL-Trigger
 add_subdirectory(tools/simitl-tester)

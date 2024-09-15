@@ -1,15 +1,7 @@
 #ifndef SIM_PACKETS_H
 #define SIM_PACKETS_H
 
-#ifdef _WIN32
-  #include "winsock2.h"
-#endif
-
-#include "util/vector_math.h"
-
 #include <cstdint>
-//#include <fmt/format.h>
-#include <kissnet.hpp>
 
 enum PacketType : int32_t {
   Error           = 0U,
@@ -148,23 +140,5 @@ struct StateOsdUpdatePacket{
 
   uint8_t osd[16*30] {};
 };
-
-// copies data to the type struct...
-template <typename T, size_t buff_size>
-bool convert(T& out, const std::array<std::byte, buff_size>& buf, const size_t length){
-  bool success = false;
-  size_t packetSize = sizeof(T);
-  if(packetSize <= length){
-    memcpy(&out, &buf[0], sizeof(T));
-    success = true;
-  }
-  return success;
-}
-
-template <size_t buff_size>
-size_t receive(kissnet::udp_socket& recv_socket, std::array<std::byte, buff_size>& buf){
-  auto [len, socketStatus] = recv_socket.recv(buf);
-  return (socketStatus != 0)? len : 0;
-}
 
 #endif

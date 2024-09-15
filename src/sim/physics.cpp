@@ -2,6 +2,7 @@
 #include "bf.h"
 #include <fmt/format.h>
 #include "util/SimplexNoise.h"
+#include <cassert>
 
 namespace SimITL{
   #ifndef M_PI

@@ -16,17 +16,8 @@ namespace SimITL{
 
 
   Sim::Sim()
-    : recv_state_socket(kissnet::endpoint("localhost", 30713))
-    , send_state_socket(kissnet::endpoint("localhost", 30715)) 
   {
     mPhysics.setSimState(&mSimState);
-
-  #ifdef _WIN32
-    u_long opt = 1;
-    int32_t SioUdpConnreset = IOC_IN | IOC_VENDOR | 12;
-    ioctlsocket(recv_state_socket, SioUdpConnreset, &opt);
-  #endif
-    recv_state_socket.bind();
   }
 
   Sim& Sim::getInstance() {
@@ -47,7 +38,7 @@ namespace SimITL{
 
     while (sim->running) {
         dyad_update();
-         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     dyad_shutdown();
@@ -67,9 +58,30 @@ namespace SimITL{
   bool Sim::connect() {
     running = true;
 
-    fmt::print("Starting tcp update threads\n");
+    fmt::print("Starting tcp update thread\n");
     tcpThread = std::thread(tcpUpdateThread, this);
 
+    fmt::print("Waiting for shared memory...\n");
+    
+    bool receptionInit = false;
+    bool transmissionInit = false;
+    while(!(receptionInit && transmissionInit)){
+      if(stopped){
+        return false; // handle interrupt
+      }
+
+      // init share memory buffers
+      if(!receptionInit){
+        sharedMemoryReceptionBuffer = SimITLMemOpen(8096, "SimITLGameState");
+        receptionInit = sharedMemoryReceptionBuffer != nullptr;
+      }
+      if(!transmissionInit){
+        sharedMemoryTransmissionBuffer = SimITLMemOpen(8096, "SimITLSimState");
+        transmissionInit = sharedMemoryTransmissionBuffer != nullptr;
+      }
+
+      std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+    } 
 
     fmt::print("Waiting for init packet\n");
 
@@ -82,7 +94,16 @@ namespace SimITL{
         return false; // handle interrupt
       }
 
-      const size_t len = receive(recv_state_socket, stateReceptionBuffer);
+      const size_t len = static_cast<size_t>(
+        SimITLMemRead(
+          sharedMemoryReceptionBuffer, 
+          static_cast<void *>(stateReceptionBuffer.data()),
+          static_cast<int>(stateReceptionBuffer.size())
+        )
+      );
+
+      fmt::print("Read init packet: {}\n", len);
+
       //probe for packet type
       if (!convert(type, stateReceptionBuffer, len) || type != PacketType::Init) {
         fmt::print("Error receiving init packet\n");
@@ -113,14 +134,27 @@ namespace SimITL{
     start = hr_clock::now();
 
     //sending the same package back for verification...
-    send_state_socket.send(reinterpret_cast<const std::byte*>(&initPacket), sizeof(InitPacket));
+    const size_t len = static_cast<size_t>(
+      SimITLMemWrite(
+        sharedMemoryTransmissionBuffer,
+        reinterpret_cast<void *>(&initPacket),
+        static_cast<int>(sizeof(InitPacket))
+      )
+    );
+
     fmt::print("Done, sending response\n\n");
 
     // receive first state in sync to init the state
     bool receivedInitialState = false;
     StatePacket state = {};
     while(!receivedInitialState){
-      const size_t len = receive(recv_state_socket, stateReceptionBuffer);
+      const size_t len = static_cast<size_t>(
+        SimITLMemRead(
+          sharedMemoryReceptionBuffer, 
+          static_cast<void *>(stateReceptionBuffer.data()),
+          static_cast<int>(stateReceptionBuffer.size())
+        )
+      );
 
       //probe for packet type
       if (!convert(type, stateReceptionBuffer, len) || type != PacketType::State) {
@@ -149,19 +183,45 @@ namespace SimITL{
 
       if (sendStateOsdUpdatePacketQueue.size() > 0) {
         auto& update = sendStateOsdUpdatePacketQueue.front();
-        send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateOsdUpdatePacket));
+        const size_t len = static_cast<size_t>(
+          SimITLMemWrite(
+            sharedMemoryTransmissionBuffer,
+            reinterpret_cast<void *>(&update),
+            static_cast<int>(sizeof(StateOsdUpdatePacket))
+          )
+        );
+
+        if(len == 0){
+          fmt::print("Couldn't write StateOsdUpdatePacket\n");
+        }
         sendStateOsdUpdatePacketQueue.pop();
       }
 
       if(sendStateUpdatePacketQueue.size() > 0) {
         auto& update = sendStateUpdatePacketQueue.front();
-        send_state_socket.send(reinterpret_cast<const std::byte*>(&update), sizeof(StateUpdatePacket));
+        const size_t len = static_cast<size_t>(
+          SimITLMemWrite(
+            sharedMemoryTransmissionBuffer,
+            reinterpret_cast<void *>(&update),
+            static_cast<int>(sizeof(StateUpdatePacket))
+          )
+        );
+
+        if(len == 0){
+          fmt::print("Couldn't write StateUpdatePacket\n");
+        }
         sendStateUpdatePacketQueue.pop();
       }
     }
 
 
-    const size_t len = receive(recv_state_socket, stateReceptionBuffer);
+    const size_t len = static_cast<size_t>(
+      SimITLMemRead(
+        sharedMemoryReceptionBuffer, 
+        static_cast<void *>(stateReceptionBuffer.data()),
+        static_cast<int>(stateReceptionBuffer.size())
+      )
+    );
 
     PacketType type = PacketType::Error;
 
@@ -292,8 +352,12 @@ namespace SimITL{
   void Sim::stop(){
     running = false;
 
-    recv_state_socket.close();
-    send_state_socket.close();
+    if(sharedMemoryReceptionBuffer != nullptr){
+      SimITLMemDestroy(sharedMemoryReceptionBuffer);
+    }
+    if(sharedMemoryTransmissionBuffer != nullptr){
+      SimITLMemDestroy(sharedMemoryTransmissionBuffer);
+    }
 
     if(tcpThread.joinable()){
       tcpThread.join();

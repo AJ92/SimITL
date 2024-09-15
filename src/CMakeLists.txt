@@ -1,6 +1,4 @@
 cmake_minimum_required(VERSION 3.3)
-#Sim In The Loop
-project(SimITL)
 
 set(SOURCE_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/util/SimplexNoise.cpp
@@ -28,7 +26,8 @@ target_include_directories(SimITL PUBLIC
 target_compile_features(SimITL PUBLIC cxx_std_17)
 
 target_link_libraries(SimITL PUBLIC 
-  sitl
+  sitl              # bf sitl
+  simitlsharedmem   # shared mem for game client communication
 )
 
 if (UNIX)

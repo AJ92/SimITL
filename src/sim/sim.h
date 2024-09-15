@@ -8,6 +8,8 @@
 #include "util/vector_math.h"
 #include "network/packets.h"
 
+#include "util/sharedmem.h"
+
 #include "util/LowPassFilter.h"
 #include "util/SimplexNoise.h"
 #include "util/SampleCurve.h"
@@ -21,7 +23,6 @@
 #include <queue>
 
 #include <fmt/format.h>
-#include <kissnet.hpp>
 
 #include <chrono>
 
@@ -30,7 +31,6 @@
 #include "sim/physics.h"
 
 using hr_clock = std::chrono::high_resolution_clock;
-
 
 namespace SimITL{
 
@@ -105,8 +105,11 @@ namespace SimITL{
     float batVoltageSag = 0.0f; // in V but saged
     double batCapacity   = 0.0f; // in mAh
 
-    kissnet::udp_socket recv_state_socket;
-    kissnet::udp_socket send_state_socket;
+    // shared memory buffer
+    // buffer for data that is received from the gameclient
+    void * sharedMemoryReceptionBuffer = nullptr;
+    // buffer for data that is sent to the gameclient
+    void * sharedMemoryTransmissionBuffer = nullptr;
 
     std::thread tcpThread{};
     std::thread stateUdpThread{};
@@ -131,6 +134,18 @@ namespace SimITL{
 
     // osd string to check for updates
     uint8_t osd[16*30] {};
+
+    // copies data to the type struct...
+    template <typename T, size_t buff_size>
+    bool convert(T& out, const std::array<std::byte, buff_size>& buf, const size_t length){
+      bool success = false;
+      size_t packetSize = sizeof(T);
+      if(packetSize <= length){
+        memcpy(&out, &buf[0], sizeof(T));
+        success = true;
+      }
+      return success;
+    }
 
     // protected for testing
   protected:
