@@ -32,16 +32,17 @@ namespace SimITL{
   std::chrono::system_clock::time_point start;
 
   void tcpUpdateThread(Sim * sim){
-    dyad_init();
+    //dyad_init();
     //dyad_setTickInterval(0.2f);
-    dyad_setUpdateTimeout(0.0f);
+    //dyad_setUpdateTimeout(0.0f);
 
     while (sim->running) {
-        dyad_update();
+        //dyad_update();
+        BF::updateSerial();
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
-    dyad_shutdown();
+    //dyad_shutdown();
     fmt::print("tcpThread end!!\n");
   }
 
@@ -80,7 +81,7 @@ namespace SimITL{
         transmissionInit = sharedMemoryTransmissionBuffer != nullptr;
       }
 
-      std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+      std::this_thread::sleep_for(std::chrono::milliseconds(500));
     } 
 
     fmt::print("Waiting for init packet\n");

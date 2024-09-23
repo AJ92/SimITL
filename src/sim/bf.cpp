@@ -176,5 +176,9 @@ namespace SimITL{
     void setDebugValue(uint8_t mode, uint8_t index, int16_t value){
       BF_DEBUG_SET(mode, index, value);
     }
+
+    void updateSerial(){
+      BF::updateSerialWs();
+    }
   } // namespace bf
 } // namespace SimITL

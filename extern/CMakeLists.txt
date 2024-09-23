@@ -1,4 +1,16 @@
+#dependencies
+
 add_subdirectory(fmt EXCLUDE_FROM_ALL)
+
+set(LWS_WITH_MINIMAL_EXAMPLES OFF CACHE BOOL "disable minimal examples" FORCE)
+set(LWS_WITHOUT_TESTAPPS ON CACHE BOOL "Don't build the libwebsocket-test-apps" FORCE)
+set(LWS_WITHOUT_TEST_SERVER ON CACHE BOOL "Don't build the test server" FORCE)
+set(LWS_WITHOUT_TEST_SERVER_EXTPOLL ON CACHE BOOL "Don't build the test server version that uses external poll" FORCE)
+set(LWS_WITHOUT_TEST_PING ON CACHE BOOL "Don't build the ping test application" FORCE)
+set(LWS_WITHOUT_TEST_CLIENT ON CACHE BOOL "Don't build the client test application" FORCE)
+set(LWS_WITH_SSL OFF CACHE BOOL "disable ssl" FORCE)
+set(LWS_WITH_SHARED OFF CACHE BOOL "Build the shared version of the library" FORCE)
+add_subdirectory(libwebsockets)
 
 # Betaflight sources for cmake
 
@@ -117,7 +129,7 @@ set(BETAFLIGHT_SOURCES
   #flight/feedforward.c
   flight/gps_rescue.c
 
-  io/serial.c
+  #io/serial.c
   io/beeper.c
   io/statusindicator.c
   io/rcdevice_cam.c
@@ -175,7 +187,7 @@ file(GLOB BETAFLIGHT_PG_SOURCES
 
 file(GLOB BETAFLIGHT_EXTENSIONS_SOURCES 
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/target/simITL/*.c"
-  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/drivers/*.c"
+  #"${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/drivers/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/cli/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/common/*.c"
   "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/io/*.c"
@@ -186,11 +198,17 @@ file(GLOB BETAFLIGHT_EXTENSIONS_SOURCES
   "${CMAKE_CURRENT_SOURCE_DIR}/sitl.h"
 )
 
+set(BETAFLIGHT_EXTENSIONS_SOURCES ${BETAFLIGHT_EXTENSIONS_SOURCES} 
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/drivers/pwm_output_fake.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/drivers/serial_ws.c"
+  "${CMAKE_CURRENT_SOURCE_DIR}/betaflightext/src/main/drivers/sound_beeper.c"
+)
+
+
 set(BETAFLIGHT_SOURCES 
   ${BETAFLIGHT_SOURCES} ${BETAFLIGHT_PG_SOURCES} ${BETAFLIGHT_EXTENSIONS_SOURCES}
   #PARENT_SCOPE
 )
-
 
 add_library(
   sitl 
@@ -215,6 +233,7 @@ target_include_directories(sitl PUBLIC betaflightext/src/main)
 target_include_directories(sitl PUBLIC betaflightext/src/main/target/simITL)
 target_include_directories(sitl PUBLIC betaflight/lib/main/dyad)
 target_include_directories(sitl PUBLIC betaflight/src/main)
-
+target_include_directories(sitl PUBLIC libwebsockets/include)
 
 target_link_libraries(sitl PUBLIC fmt-header-only)
+target_link_libraries(sitl PUBLIC websockets)

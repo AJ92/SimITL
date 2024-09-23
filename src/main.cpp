@@ -42,6 +42,7 @@ int main() {
         const auto elapsed_ms = now - start;
         long long elapsedUs = SimITL::to_us(elapsed_ms);
 
+        /*
         clearline();
         fmt::print(
           "Sl/s:   {:8.1f}, sch/s: {:8.1f}, avgST: {}, arm: {}, dis: {},\n" 
@@ -81,6 +82,7 @@ int main() {
           sim->mSimState.motorsState[2].mTorque,
           sim->mSimState.motorsState[3].mTorque
         );
+        */
 
         sim->simSteps = 0;
         sim->bfSchedules = 0;

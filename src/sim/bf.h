@@ -54,6 +54,8 @@ namespace SimITL{
      * \param[in] value The value.
      */
     void setDebugValue(uint8_t mode, uint8_t index, int16_t value);
+
+    void updateSerial();
   }
 }
 

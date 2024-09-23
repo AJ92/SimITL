@@ -10,3 +10,6 @@
 [submodule "extern/mingw-std-threads"]
 	path = extern/mingw-std-threads
 	url = git@github.com:meganz/mingw-std-threads.git
+[submodule "extern/libwebsockets"]
+	path = extern/libwebsockets
+	url = git@github.com:warmcat/libwebsockets.git

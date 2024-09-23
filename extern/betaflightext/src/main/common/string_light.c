@@ -26,10 +26,12 @@
 
 #include "typeconversion.h"
 
+#ifndef _WIN32
 int isalnum(int c)
 {
     return isdigit(c) || isupper(c) || islower(c);
 }
+#endif
 
 int isdigit(int c)
 {
@@ -51,10 +53,12 @@ int isspace(int c)
     return (c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == '\v');
 }
 
+#ifndef _WIN32
 int tolower(int c)
 {
     return isupper(c) ? (c) - 'A' + 'a' : c;
 }
+#endif
 
 int toupper(int c)
 {

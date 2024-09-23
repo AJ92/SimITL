@@ -37,6 +37,8 @@ namespace SimITL{
 
       #include "build/debug.h"
 
+      #include "drivers/serial_ws.h"
+
       #undef ENABLE_STATE
 
       //custom macro with bf namespaces
@@ -65,6 +67,10 @@ namespace SimITL{
       {
         UNUSED(rxRuntimeState);
         return BF::RX_FRAME_COMPLETE;
+      }
+
+      static void updateSerialWs(){
+        BF::wsUpdate();
       }
 
       extern uint64_t micros_passed;

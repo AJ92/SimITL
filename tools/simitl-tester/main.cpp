@@ -29,7 +29,7 @@ void updateThread(){
     )
   );
 
-  fmt::print("initLen {}\n", initLen);
+  //fmt::print("initLen {}\n", initLen);
 
   while(running){
 
@@ -40,7 +40,7 @@ void updateThread(){
         static_cast<void *>(stateReceptionBuffer.data()),
         static_cast<int>(stateReceptionBuffer.size())
       ));
-      fmt::print("readLen {}\n", readLen);
+      //fmt::print("readLen {}\n", readLen);
     }
 
     const size_t sentLen = static_cast<size_t>(
@@ -51,9 +51,9 @@ void updateThread(){
       )
     );
 
-    fmt::print("sentLen {}\n", sentLen);
+    //fmt::print("sentLen {}\n", sentLen);
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    std::this_thread::sleep_for(std::chrono::milliseconds(16));
   }
 }
 
@@ -67,7 +67,7 @@ int main() {
   memcpy(init.eepromName, name, strnlen(name, 30));
   init.eepromName[31] = '\0';
 
-  state.delta = 0.001;
+  state.delta = 0.016;
 
   t = std::thread(updateThread);
   t.join();
