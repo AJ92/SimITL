@@ -31,7 +31,7 @@ namespace SimITL{
 
   std::chrono::system_clock::time_point start;
 
-  void tcpUpdateThread(Sim * sim){
+  void wsUpdateThread(Sim * sim){
     //dyad_init();
     //dyad_setTickInterval(0.2f);
     //dyad_setUpdateTimeout(0.0f);
@@ -43,7 +43,7 @@ namespace SimITL{
     }
 
     //dyad_shutdown();
-    fmt::print("tcpThread end!!\n");
+    fmt::print("wsThread end!!\n");
   }
 
   void updStateUpdateThread(Sim * sim){
@@ -59,8 +59,8 @@ namespace SimITL{
   bool Sim::connect() {
     running = true;
 
-    fmt::print("Starting tcp update thread\n");
-    tcpThread = std::thread(tcpUpdateThread, this);
+    fmt::print("Starting ws update thread\n");
+    tcpThread = std::thread(wsUpdateThread, this);
 
     fmt::print("Waiting for shared memory...\n");
     

@@ -109,23 +109,29 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
         // send data till end of buffer
         int chunk = wsPort->port.txBufferSize - wsPort->port.txBufferTail;
         m = lws_write(wsi, (unsigned char *)&wsPort->port.txBuffer[wsPort->port.txBufferTail], chunk, LWS_WRITE_BINARY);
-        if (m < chunk) {
+        if (m < 0) {
           lwsl_err("ERROR %d writing to ws\n", m);
           break;
         }
-        wsPort->port.txBufferTail = 0;
+        
+        //advance tail by written bytes
+        wsPort->port.txBufferTail += m;
+        if(chunk == m){
+          // if remainder of buffer got written reset tail to start of ring buffer
+          wsPort->port.txBufferTail = 0;
+        }
         //fprintf(stderr, "Written %d bytes\n", m);
     }
     int chunk = wsPort->port.txBufferHead - wsPort->port.txBufferTail;
     if (chunk){
       m = lws_write(wsi, (unsigned char  *)&wsPort->port.txBuffer[wsPort->port.txBufferTail], chunk, LWS_WRITE_BINARY);
-      if (m < chunk) {
+      if (m < 0) {
         lwsl_err("ERROR %d writing to ws\n", m);
         break;
       }
+      wsPort->port.txBufferTail += m;
       //fprintf(stderr, "Written %d bytes\n", m);
     }
-    wsPort->port.txBufferTail = wsPort->port.txBufferHead;
 		break;
 
 	case LWS_CALLBACK_RECEIVE:
