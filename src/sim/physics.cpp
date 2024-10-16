@@ -431,6 +431,7 @@ namespace SimITL{
     const auto vel = std::max(0.0f, dot(linVel, up));
 
     constexpr float maxEffectSpeed = 18.0f; // m/s 18m/s = 64.8km/h
+    constexpr float minEffectSpeed = 1.0f; // m/s 1m/s = 3.6km/h
     const float speed = std::abs(length(linVel)); // m/s
     float speedFactor = std::min(speed / maxEffectSpeed, 1.0f);
 
@@ -448,19 +449,21 @@ namespace SimITL{
       // 1.0 + effect: increasing thrust close to ground
       float groundEffect = 1.0f + ((state.groundEffect[i] * state.groundEffect[i]) * 0.7f);
       
+      // clamp speed so it has no propwash effect at 0 
       // positive value depending on how much thrust is given against actual movement direction of quad
-      float reverseThrust = std::max(0.0f, dot(normalize(linVel), normalize(motors[i].thrust * up) * -1.0f));
+      float reverseThrust = (speed > minEffectSpeed) ? 
+        std::max(0.0f, dot(normalize(linVel), normalize(motors[i].thrust * up) * -1.0f)) : 0.0f;
       // keep between 0.0 and 1.0, takes 50% that point the most against movement direction
       reverseThrust = std::max(0.0f, reverseThrust - 0.5f) * 2.0f;
       reverseThrust = reverseThrust * reverseThrust;
 
       float speedCompressed = static_cast<float>(static_cast<int>(speed)) / maxEffectSpeed;
-      float motorPhaseCompressed = static_cast<float>(static_cast<int>(motors[i].phaseSlow * 3.0f)) /  3.0f;
+      float motorPhaseCompressed = static_cast<float>(static_cast<int>(motors[i].phaseSlow * 4.0f)) /  4.0f;
 
       float propWashNoise = motors[i].propWashLowPassFilter.update( 
-        std::max(0.0f, 0.5f * (SimplexNoise::noise(motorPhaseCompressed) + 1.0f)), 
+        std::min(1.0f, std::max(0.0f, std::abs(SimplexNoise::noise(motorPhaseCompressed)))), 
         dt, 
-        120.0f
+        35.0f
       );
 
       // 1.0 - effect
@@ -528,10 +531,14 @@ namespace SimITL{
         BF::setDebugValue(E_DEBUG_SIM, 1, speedFactor      * 1000);
         BF::setDebugValue(E_DEBUG_SIM, 2, propWashNoise    * 1000);
         BF::setDebugValue(E_DEBUG_SIM, 3, propwashEffect   * 1000);
-        BF::setDebugValue(E_DEBUG_SIM, 4, motors[i].thrust * 1000);
       }
       
     }
+
+    BF::setDebugValue(E_DEBUG_SIM, 4, motors[0].thrust * 1000);
+    BF::setDebugValue(E_DEBUG_SIM, 5, motors[1].thrust * 1000);
+    BF::setDebugValue(E_DEBUG_SIM, 6, motors[2].thrust * 1000);
+    BF::setDebugValue(E_DEBUG_SIM, 7, motors[3].thrust * 1000);
 
     return resPropTorque;
   }
