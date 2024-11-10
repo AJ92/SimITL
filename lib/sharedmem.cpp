@@ -5,6 +5,32 @@
 
 namespace SimITL{
 
+  #ifdef _WIN32
+  void log_error(const char* message) {
+    DWORD errorCode = GetLastError();
+    char* errorMessage = NULL;
+
+    // Format the error message
+    FormatMessageA(
+        FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+        NULL,
+        errorCode,
+        0, // Default language
+        (LPSTR)&errorMessage,
+        0,
+        NULL
+    );
+
+    // Log the message along with the error code and description
+    if (errorMessage != NULL) {
+        printf("%s failed with error %lu: %s\n", message, errorCode, errorMessage);
+        LocalFree(errorMessage); // Free the buffer allocated by FormatMessage
+    } else {
+        printf("%s failed with error %lu, but no description available.\n", message, errorCode);
+    }
+  } 
+  #endif
+
   SharedMem::~SharedMem(){
     destroy();
   }
@@ -22,7 +48,7 @@ namespace SimITL{
     );
 
     if (mHandle == NULL) {
-      std::cerr << "Could not create file mapping object." << std::endl;
+      log_error("Could not create file mapping object");
       return false;
     }
 
@@ -36,7 +62,7 @@ namespace SimITL{
     );
 
     if (mSharedBuffer == NULL) {
-      std::cerr << "Could not map view of file." << std::endl;
+      log_error("Could not map view of file");
       CloseHandle(mHandle);
       return false;
     }
@@ -45,13 +71,13 @@ namespace SimITL{
     // Open the shared memory object
     int mHandle = shm_open( (std::string("/") + std::string(identifier)).c_str(), O_CREAT | O_RDWR, 0666);
     if (mHandle == -1) {
-      std::cerr << "Failed to create shared memory object." << std::endl;
+      perror("Failed to create shared memory object:");
       return false;
     }
 
     // Configure the size of the shared memory object
     if(ftruncate(mHandle, sizeof(SharedBuffer) + bufferSize) != 0){
-      std::cerr << "Failed to resize shared memory." << std::endl;
+      perror("Failed to resize shared memory:");
       close(mHandle);
       return false;
     }
@@ -93,7 +119,7 @@ namespace SimITL{
     );
 
     if (mHandle == NULL) {
-      std::cerr << "Could not open file mapping object." << std::endl;
+      log_error("Could not open file mapping object");
       return false;
     }
 
@@ -107,7 +133,7 @@ namespace SimITL{
     );
 
     if (mSharedBuffer == NULL) {
-      std::cerr << "Could not map view of file." << std::endl;
+      log_error("Could not map view of file");
       CloseHandle(mHandle);
       return false;
     }
@@ -116,7 +142,7 @@ namespace SimITL{
     // Open the shared memory object
     int mHandle = shm_open( (std::string("/") + std::string(identifier)).c_str(), O_RDWR, 0666);
     if (mHandle == -1) {
-      std::cerr << "Failed to open shared memory object." << std::endl;
+      perror("Failed to open shared memory object:");
       return false;
     }
 
@@ -131,7 +157,7 @@ namespace SimITL{
     );
 
     if (mSharedBuffer == MAP_FAILED) {
-      std::cerr << "Failed to map shared memory." << std::endl;
+      perror("Failed to map shared memory:");
       close(mHandle);
       return false;
     }

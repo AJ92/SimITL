@@ -264,8 +264,6 @@ namespace SimITL{
   std::chrono::system_clock::time_point lastStepTime;
 
   bool Sim::step() {
-    //dyad_update();
-
     if(!mPhysics.checkSimState()){
       return false; // no SimState, no sim!
     }

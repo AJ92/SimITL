@@ -463,14 +463,17 @@ namespace SimITL{
       float propWashNoise = motors[i].propWashLowPassFilter.update( 
         std::min(1.0f, std::max(0.0f, std::abs(SimplexNoise::noise(motorPhaseCompressed)))), 
         dt, 
-        35.0f
+        45.0f
       );
 
       // 1.0 - effect
       float propwashEffect = 1.0f - (speedFactor * propWashNoise * reverseThrust * 0.95f);
 
-      // 1.0 - effect
-      float propDamageEffect = 1.0f - (std::max(0.0f, 0.5f * (SimplexNoise::noise(motors[i].phase * speed) + 1.0f)) * state.propDamage[i]);
+      // 1.0 - effect    reusing prop wash noise to reduce thrust if motor/prop is damaged
+      float motorDamageEffect = 1.0f - (std::max(0.0f, 0.5f * (SimplexNoise::noise(motors[i].phase * speed) + 1.0f)) * state.propDamage[i] * propWashNoise);
+
+      // 1.0 - effect   reusing prop wash noise to reduce thrust if motor is damaged
+      float propDamageEffect = 1.0f - (state.propDamage[i] * propWashNoise);
 
       auto rpm = motors[i].rpm;
       const auto kV = mSimState->initPacket.motorKV[i];
@@ -484,8 +487,8 @@ namespace SimITL{
 
       float armed = mSimState->armed ? 0.0f : 1.0f;
 
-      const auto volts = motors[i].pwmLowPassFilter.update(motors[i].pwm, dt, 120.0f) * vbat;
-      const auto mTorque = motorTorque(volts, rpm, kV, R, I0) * 0.833f * propDamageEffect;
+      const auto volts = motors[i].pwmLowPassFilter.update(motors[i].pwm, dt, 100.0f) * vbat;
+      const auto mTorque = motorTorque(volts, rpm, kV, R, I0) * 0.833f * motorDamageEffect;
       auto current       = motorCurrent(mTorque, kV);
       const auto pTorque = propTorque(rpm, vel) * propHealthTorqueFactor;
       const auto netTorque = mTorque - pTorque;
@@ -526,10 +529,10 @@ namespace SimITL{
         motors[i].burnedOut = true;
       }
 
-      if(i == 0){
+      if(i == 3){
         BF::setDebugValue(E_DEBUG_SIM, 0, reverseThrust    * 1000);
-        BF::setDebugValue(E_DEBUG_SIM, 1, speedFactor      * 1000);
-        BF::setDebugValue(E_DEBUG_SIM, 2, propWashNoise    * 1000);
+        BF::setDebugValue(E_DEBUG_SIM, 1, propDamageEffect * 1000);
+        BF::setDebugValue(E_DEBUG_SIM, 2, mTorque          * 1000);
         BF::setDebugValue(E_DEBUG_SIM, 3, propwashEffect   * 1000);
       }
       
@@ -589,7 +592,7 @@ namespace SimITL{
     copy(state.linearVelocity, linearVelocity);
     
     // moment sum around origin:
-    vec3 total_moment = get_axis(rotation, 1) * motorsTorque;
+    vec3 total_moment = get_axis(rotation, 1) * motorsTorque * 4.0f;
     
     // drag induced momentum
     dragAngular = xform_inv(rotation, dragAngular) * 0.001f;
