@@ -1,7 +1,7 @@
 #ifndef SHARED_MEM_INTERFACE
 #define SHARED_MEM_INTERFACE
 
-// uses the shared mem game client interface from ../lib
+// c only header
 
 extern "C" {
   void * SimITLMemCreate(int bufferSize, const char * identifier);

@@ -21,6 +21,7 @@ target_include_directories(SimITL PUBLIC
   "../extern/betaflightext/src/main/target/simITL"
   "../extern/betaflight/lib/main/dyad"
   "../extern/betaflight/src/main"
+  "../lib"
 )
 
 target_compile_features(SimITL PUBLIC cxx_std_17)

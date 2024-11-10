@@ -8,7 +8,7 @@
 #include "util/vector_math.h"
 #include "network/packets.h"
 
-#include "util/sharedmem.h"
+#include "sharedmem.h"
 
 #include "util/LowPassFilter.h"
 #include "util/SimplexNoise.h"

@@ -4,7 +4,7 @@
 #include <array>
 
 #include "network/packets.h"
-#include "util/sharedmem.h"
+#include "sharedmem.h"
 
 
 // buffer for data that is received from the gameclient

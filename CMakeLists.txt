@@ -35,5 +35,6 @@ add_subdirectory(src/)
 # SimITL shared memory lib for game clients to interface with a running SimITL process
 add_subdirectory(lib/)
 
-# SimITL-Trigger
+# SimITL-Tester
+# enables testing of a SimITL process without a gameclient
 add_subdirectory(tools/simitl-tester)

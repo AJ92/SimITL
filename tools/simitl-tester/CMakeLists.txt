@@ -13,6 +13,7 @@ add_executable(simitl-tester
 target_include_directories(simitl-tester PUBLIC 
   "../../src"
   "../../extern"
+  "../../lib"
 )
 
 target_compile_features(simitl-tester PUBLIC cxx_std_17)
