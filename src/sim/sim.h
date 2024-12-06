@@ -51,11 +51,22 @@ namespace SimITL{
     ~Sim();
 
     // initialize
-    bool connect();
-    // udp update thread
-    bool udpStateUpdate();
+    void init(const StateInit& stateInit);
+    // update physics params 
+    void reinitPhysics(const StateInit& stateInit);
+    // update the simulation according to new inputs
+    void update(const StateInput& stateInput);
+
+    //TODO: remove
     // sim update step
-    bool step();
+    void step();
+
+    // retrieves the current state output data
+    const StateOutput& getStateUpdate() const;
+
+    // executes a command
+    void command(const CommandType cmd);
+
     //stop threads
     void stop();
 
@@ -64,32 +75,13 @@ namespace SimITL{
 
     uint64_t getMicrosPassed();
 
-    int64_t statePacketsReceived = 0;
-    int64_t simSteps = 0;
-    int64_t bfSchedules = 0;
-    int64_t avgStepTime = 100;
-
     bool running = false;
-    bool stopped = false;
+    bool wsThreadRunning = false;
 
-    //NEW restructed sim:
     SimState mSimState{};
     Physics mPhysics{};
 
   private:
-    // state update mutex (reception is in seperate thread)
-    std::mutex statePacketMutex;
-
-    std::array<std::byte, 2048> stateReceptionBuffer{};
-    
-    // state update from rendering side
-    std::queue<StatePacket> receivedStatePacketQueue {};
-
-    // update queues for rendering side
-    uint32_t maxQueueSize = 10U;
-    std::queue<StateUpdatePacket> sendStateUpdatePacketQueue {};
-    std::queue<StateOsdUpdatePacket> sendStateOsdUpdatePacketQueue {};
-
     uint16_t rc_data[16] {};
     uint32_t rcDataReceptionTimeUs;
 
@@ -105,29 +97,13 @@ namespace SimITL{
     float batVoltageSag = 0.0f; // in V but saged
     double batCapacity   = 0.0f; // in mAh
 
-    // shared memory buffer
-    // buffer for data that is received from the gameclient
-    void * sharedMemoryReceptionBuffer = nullptr;
-    // buffer for data that is sent to the gameclient
-    void * sharedMemoryTransmissionBuffer = nullptr;
-
-    std::thread tcpThread{};
+    std::thread wsThread{};
     std::thread stateUdpThread{};
 
-    static void update_rotation(double dt, StatePacket& state);
+    static void update_rotation(double dt, StateInput& state);
 
-    float motor_current(float volts, float kV);
-    float motor_torque(float volts, float rpm, float kV, float R, float I0);
-    float prop_thrust(float rpm, float vel);
-    float prop_torque(float rpm, float vel);
 
-    void updateBat(double dt);
-    float shiftedPhase(const double dt, float hz, float phase);
-    mat3 motorNoise(const double dt, MotorState& motorState);
-    void updateGyroNoise(const StatePacket& state, vec3& angularNoise);
-    void updateMotorNoise(const double dt, const StatePacket& state, vec3& angularNoise);
-
-    bool simStep();
+    void simStep();
 
     // dyad init called?
     bool networkingInitialized = false;

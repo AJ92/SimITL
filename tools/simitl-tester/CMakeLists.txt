@@ -29,6 +29,7 @@ endif (WIN32)
 
 target_link_libraries(simitl-tester PUBLIC 
   fmt-header-only 
-  simitlsharedmem   # shared mem for game client communication
+  SimITL
+  sitl
 )
 

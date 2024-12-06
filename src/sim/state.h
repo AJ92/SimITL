@@ -91,21 +91,18 @@ namespace SimITL{
    */
   struct SimState {
     // initial quad/physics params
-    InitPacket initPacket {};
+    StateInit stateInit {};
 
     // current internal state
-    StatePacket statePacket {};
+    StateInput stateInput {};
 
     // outgoing packets
-    StateUpdatePacket stateUpdatePacket {};
-    StateOsdUpdatePacket osdUpdatePacket {};
+    StateOutput stateOutput {};
 
     bool armed = false;
     int armingDisabledFlags = 0;
 
     bool beep = false;
-
-    bool osdChanged = false;
 
     // rc data
     uint16_t rcData[16] {};

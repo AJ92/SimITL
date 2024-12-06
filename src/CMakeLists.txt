@@ -8,14 +8,14 @@ set(SOURCE_FILES
 )
 
 # SimInTheLoop executable
-add_executable(SimITL
+add_library(
+  SimITL   SHARED
   main.cpp
   ${SOURCE_FILES}
 )
 
 target_include_directories(SimITL PUBLIC 
   "./"
-  "../extern/kissnet"
   "../extern"
   "../extern/betaflightext/src/main"
   "../extern/betaflightext/src/main/target/simITL"

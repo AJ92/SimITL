@@ -1,7 +1,7 @@
 #include "physics.h"
-#include "bf.h"
 #include <fmt/format.h>
 #include "util/SimplexNoise.h"
+#include "bf.h"
 #include <cassert>
 
 namespace SimITL{
@@ -37,65 +37,64 @@ namespace SimITL{
     mSimState = state;
   }
 
-  void Physics::initState(const InitPacket& initPacket){
+  void Physics::initState(const StateInit& state){
     //copy data
-    memcpy( (void *)&(mSimState->initPacket), (const void *)(&initPacket), sizeof(InitPacket) );
+    memcpy( (void *)&(mSimState->stateInit), (const void *)(&state), sizeof(StateInit) );
 
     // is calculated now
     mSimState->batteryState.batVoltage = 0.1f;
     mSimState->batteryState.batVoltageSag = 0.1f;
-    mSimState->batteryState.batCapacity = mSimState->initPacket.quadBatCapacityCharged;
+    mSimState->batteryState.batCapacity = mSimState->stateInit.quadBatCapacityCharged;
 
     for (auto i = 0u; i < 4; i++) {
-      mSimState->motorsState[i].position[0] = mSimState->initPacket.quadMotorPos[i].x;
-      mSimState->motorsState[i].position[1] = mSimState->initPacket.quadMotorPos[i].y;
-      mSimState->motorsState[i].position[2] = mSimState->initPacket.quadMotorPos[i].z;
-      mSimState->motorsState[i].temp        = mSimState->initPacket.ambientTemp;
+      mSimState->motorsState[i].position[0] = mSimState->stateInit.quadMotorPos[i].x;
+      mSimState->motorsState[i].position[1] = mSimState->stateInit.quadMotorPos[i].y;
+      mSimState->motorsState[i].position[2] = mSimState->stateInit.quadMotorPos[i].z;
+      mSimState->motorsState[i].temp        = mSimState->stateInit.ambientTemp;
     }
   }
 
-  void Physics::updateState(const StatePacket& statePacketUpdate){
-    updateCommands(statePacketUpdate.commands);
+  void Physics::updateState(const StateInput& state){
 
     //angular velocity update
     vec3 currentAngularVelocity;
-    copy(currentAngularVelocity, mSimState->statePacket.angularVelocity);
+    copy(currentAngularVelocity, mSimState->stateInput.angularVelocity);
     vec3 newAngularVelocity;
-    copy(newAngularVelocity, statePacketUpdate.angularVelocity);
+    copy(newAngularVelocity, state.angularVelocity);
     vec3 angularVelocityDiff = newAngularVelocity - currentAngularVelocity;
-    float i_angular = (statePacketUpdate.contact == 1) ? 0.5f : 0.0f;
+    float i_angular = (state.contact == 1) ? 0.5f : 0.0f;
     //linear interpolation, strength defined by diff between states
     newAngularVelocity = currentAngularVelocity + angularVelocityDiff * i_angular;
 
     //linear velocity update
     vec3 currentLinearVelocity;
-    copy(currentLinearVelocity, mSimState->statePacket.linearVelocity);
+    copy(currentLinearVelocity, mSimState->stateInput.linearVelocity);
     vec3 newLinearVelocity;
-    copy(newLinearVelocity, statePacketUpdate.linearVelocity);
+    copy(newLinearVelocity, state.linearVelocity);
     vec3 linearVelocityDiff = newLinearVelocity - currentLinearVelocity;
-    float i_linear = (statePacketUpdate.contact == 1) ? 0.5f : 0.0f;
+    float i_linear = (state.contact == 1) ? 0.5f : 0.0f;
     //linear interpolation, strength defined by diff between states
     newLinearVelocity = currentLinearVelocity + linearVelocityDiff * i_linear;
 
     //copy data
-    memcpy( (void *)&(mSimState->statePacket), (const void *)(&statePacketUpdate), sizeof(StatePacket) );
+    memcpy( (void *)&(mSimState->stateInput), (const void *)(&state), sizeof(StateInput) );
 
-    copy(mSimState->statePacket.angularVelocity, newAngularVelocity);
-    copy(mSimState->statePacket.linearVelocity, newLinearVelocity);
+    copy(mSimState->stateInput.angularVelocity, newAngularVelocity);
+    copy(mSimState->stateInput.linearVelocity, newLinearVelocity);
   }
 
   void Physics::updateGyro(double dt){
-    updateGyroNoise(mSimState->statePacket, mSimState->gyroNoise);
-    updateMotorNoise(dt, mSimState->statePacket, mSimState->motorNoise);
+    updateGyroNoise(mSimState->stateInput, mSimState->gyroNoise);
+    updateMotorNoise(dt, mSimState->stateInput, mSimState->motorNoise);
     mSimState->combinedNoise = mSimState->gyroNoise + mSimState->motorNoise;
 
     // calc gyro and acc output
     mat3 basis;
-    copy(basis, mSimState->statePacket.rotation);
+    copy(basis, mSimState->stateInput.rotation);
     mSimState->rotation = mat3_to_quat(basis);
 
     vec3 angularVelocity;
-    copy(angularVelocity, mSimState->statePacket.angularVelocity);
+    copy(angularVelocity, mSimState->stateInput.angularVelocity);
     angularVelocity = angularVelocity + mSimState->combinedNoise;
 
     constexpr float cutoffFreq = 300.0f;
@@ -111,35 +110,35 @@ namespace SimITL{
   }
 
   void Physics::updatePhysics(double dt){
-    float motorsTorque = calculateMotors(dt, mSimState->statePacket, mSimState->motorsState);
-    mSimState->acceleration = calculatePhysics(dt, mSimState->statePacket, mSimState->motorsState, motorsTorque);
+    float motorsTorque = calculateMotors(dt, mSimState->stateInput, mSimState->motorsState);
+    mSimState->acceleration = calculatePhysics(dt, mSimState->stateInput, mSimState->motorsState, motorsTorque);
 
     // update battery data
     updateBat(dt);
 
     // prepare update packet
     mat3 basis;
-    copy(basis, mSimState->statePacket.rotation);
+    copy(basis, mSimState->stateInput.rotation);
     quat orientation = mat3_to_quat(basis);
-    mSimState->stateUpdatePacket.orientation.w = orientation[3];
-    mSimState->stateUpdatePacket.orientation.x = orientation[0];
-    mSimState->stateUpdatePacket.orientation.y = orientation[1];
-    mSimState->stateUpdatePacket.orientation.z = orientation[2];
-    mSimState->stateUpdatePacket.angularVelocity = mSimState->statePacket.angularVelocity;
-    mSimState->stateUpdatePacket.linearVelocity = mSimState->statePacket.linearVelocity;
+    mSimState->stateOutput.orientation.w = orientation[3];
+    mSimState->stateOutput.orientation.x = orientation[0];
+    mSimState->stateOutput.orientation.y = orientation[1];
+    mSimState->stateOutput.orientation.z = orientation[2];
+    mSimState->stateOutput.angularVelocity = mSimState->stateInput.angularVelocity;
+    mSimState->stateOutput.linearVelocity = mSimState->stateInput.linearVelocity;
 
-    mSimState->stateUpdatePacket.motorRpm[0] = mSimState->motorsState[0].rpm;
-    mSimState->stateUpdatePacket.motorRpm[1] = mSimState->motorsState[1].rpm;
-    mSimState->stateUpdatePacket.motorRpm[2] = mSimState->motorsState[2].rpm;
-    mSimState->stateUpdatePacket.motorRpm[3] = mSimState->motorsState[3].rpm;
+    mSimState->stateOutput.motorRpm[0] = mSimState->motorsState[0].rpm;
+    mSimState->stateOutput.motorRpm[1] = mSimState->motorsState[1].rpm;
+    mSimState->stateOutput.motorRpm[2] = mSimState->motorsState[2].rpm;
+    mSimState->stateOutput.motorRpm[3] = mSimState->motorsState[3].rpm;
 
-    mSimState->stateUpdatePacket.motorT[0] = mSimState->motorsState[0].temp;
-    mSimState->stateUpdatePacket.motorT[1] = mSimState->motorsState[1].temp;
-    mSimState->stateUpdatePacket.motorT[2] = mSimState->motorsState[2].temp;
-    mSimState->stateUpdatePacket.motorT[3] = mSimState->motorsState[3].temp;
+    mSimState->stateOutput.motorT[0] = mSimState->motorsState[0].temp;
+    mSimState->stateOutput.motorT[1] = mSimState->motorsState[1].temp;
+    mSimState->stateOutput.motorT[2] = mSimState->motorsState[2].temp;
+    mSimState->stateOutput.motorT[3] = mSimState->motorsState[3].temp;
   }
 
-  void Physics::updateRotation(double dt, StatePacket& state) {
+  void Physics::updateRotation(double dt, StateInput& state) {
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
     
@@ -192,12 +191,12 @@ namespace SimITL{
 
   float Physics::propThrust(float rpm, float vel) {
     // max thrust vs velocity:
-    auto propF = mSimState->initPacket.propThrustFactor.x * vel * vel +
-                 mSimState->initPacket.propThrustFactor.y * vel +
-                 mSimState->initPacket.propThrustFactor.z;
+    auto propF = mSimState->stateInit.propThrustFactor.x * vel * vel +
+                 mSimState->stateInit.propThrustFactor.y * vel +
+                 mSimState->stateInit.propThrustFactor.z;
 
-    const auto max_rpm = std::max(mSimState->initPacket.propMaxRpm, 0.01f);
-    const auto prop_a = mSimState->initPacket.propAFactor;
+    const auto max_rpm = std::max(mSimState->stateInit.propMaxRpm, 0.01f);
+    const auto prop_a = mSimState->stateInit.propAFactor;
     propF = std::max(0.0f, propF);
 
     // thrust vs rpm (and max thrust) 
@@ -208,12 +207,12 @@ namespace SimITL{
   }
 
   float Physics::propTorque(float rpm, float vel) {
-    return propThrust(rpm, vel) * mSimState->initPacket.propTorqueFactor;
+    return propThrust(rpm, vel) * mSimState->stateInit.propTorqueFactor;
   }
 
   void Physics::updateBat(double dt) {
-    const double batCapacityFull = std::max(mSimState->initPacket.quadBatCapacity, 1.0f);
-    mSimState->batteryState.batVoltage = mBatVoltageCurve.sample(1.0f - (mSimState->batteryState.batCapacity / batCapacityFull)) * mSimState->initPacket.quadBatCellCount;
+    const double batCapacityFull = std::max(mSimState->stateInit.quadBatCapacity, 1.0f);
+    mSimState->batteryState.batVoltage = mBatVoltageCurve.sample(1.0f - (mSimState->batteryState.batCapacity / batCapacityFull)) * mSimState->stateInit.quadBatCellCount;
     mSimState->batteryState.batVoltage = std::max(mSimState->batteryState.batVoltage, 0.1f);
 
     float pwmSum = 0.0f;
@@ -226,10 +225,10 @@ namespace SimITL{
     const float powerFactor = std::max(0.0f, pwmSum / 4.0f);
     const float powerFactor2 = powerFactor * powerFactor;
     const float chargeFactorInv = 1.0f - (static_cast<float>(mSimState->batteryState.batCapacity) / 
-                                  std::max(mSimState->initPacket.quadBatCapacityCharged, 1.0f));
+                                  std::max(mSimState->stateInit.quadBatCapacityCharged, 1.0f));
   
-    float vSag = mSimState->initPacket.maxVoltageSag * powerFactor2 + // power dependency
-                 (mSimState->initPacket.maxVoltageSag * chargeFactorInv * chargeFactorInv * powerFactor2); // charge state dependency
+    float vSag = mSimState->stateInit.maxVoltageSag * powerFactor2 + // power dependency
+                 (mSimState->stateInit.maxVoltageSag * chargeFactorInv * chargeFactorInv * powerFactor2); // charge state dependency
 
     // actual vbat - sag - fuluctuations
     mSimState->batteryState.batVoltageSag = mSimState->batteryState.batVoltage - vSag - std::abs(randf() * 0.01f);
@@ -253,7 +252,7 @@ namespace SimITL{
     // milliAmpSeconds * 3600 / 1000
     mSimState->batteryState.amperage = currentmAs * 3.6;
     mSimState->batteryState.batCapacity -= currentmAs * dt;
-    mSimState->batteryState.mAhDrawn = mSimState->initPacket.quadBatCapacityCharged - mSimState->batteryState.batCapacity;
+    mSimState->batteryState.mAhDrawn = mSimState->stateInit.quadBatCapacityCharged - mSimState->batteryState.batCapacity;
 
     // negative cappa allows to drop voltage below 3.5V
     //batCapacity = std::max(batCapacity, 0.1f);
@@ -291,7 +290,7 @@ namespace SimITL{
             vec3{sinPhase + cosPhase, sinPhaseH1 + cosPhaseH1, sinPhaseH2 + cosPhaseH2}};
   }
 
-  void Physics::updateGyroNoise(const StatePacket& state, vec3& angularNoise){
+  void Physics::updateGyroNoise(const StateInput& state, vec3& angularNoise){
     // white noise
     float whiteNoiseX = randf() * state.gyroBaseNoiseAmp;
     float whiteNoiseY = randf() * state.gyroBaseNoiseAmp;
@@ -302,11 +301,11 @@ namespace SimITL{
     angularNoise[2] = whiteNoiseZ;
   }
 
-  void Physics::updateMotorNoise(const double dt, const StatePacket& state, vec3& angularNoise){
-    float maxV = mSimState->initPacket.quadBatCellCount * 4.2;
+  void Physics::updateMotorNoise(const double dt, const StateInput& state, vec3& angularNoise){
+    float maxV = mSimState->stateInit.quadBatCellCount * 4.2;
 
     // per motor 0 - 3
-    vec4 motorKV = toVec4(mSimState->initPacket.motorKV);
+    vec4 motorKV = toVec4(mSimState->stateInit.motorKV);
     vec4 maxRpm = maximum((motorKV * maxV), 0.1f);
 
     vec4 motorRpm = {
@@ -335,25 +334,25 @@ namespace SimITL{
         // noise
         mNoise[i][0][0] * state.motorImbalance[i].x * rpmDmgFactor[i] +
         // harmonic 1
-        mNoise[i][0][1] * state.motorImbalance[i].x * rpmDmgFactor[i] * mSimState->initPacket.propHarmonic1Amp +
+        mNoise[i][0][1] * state.motorImbalance[i].x * rpmDmgFactor[i] * mSimState->stateInit.propHarmonic1Amp +
         // harmonic 2
-        mNoise[i][0][2] * state.motorImbalance[i].x * rpmDmgFactor[i] * mSimState->initPacket.propHarmonic2Amp;
+        mNoise[i][0][2] * state.motorImbalance[i].x * rpmDmgFactor[i] * mSimState->stateInit.propHarmonic2Amp;
 
       noise[1] +=
         // motor noise
         mNoise[i][1][0] * state.motorImbalance[i].y * rpmDmgFactor[i] +
         // harmonic 1
-        mNoise[i][1][1] * state.motorImbalance[i].y * rpmDmgFactor[i] * mSimState->initPacket.propHarmonic1Amp +
+        mNoise[i][1][1] * state.motorImbalance[i].y * rpmDmgFactor[i] * mSimState->stateInit.propHarmonic1Amp +
         // harmonic 2
-        mNoise[i][1][2] * state.motorImbalance[i].y * rpmDmgFactor[i] * mSimState->initPacket.propHarmonic2Amp;
+        mNoise[i][1][2] * state.motorImbalance[i].y * rpmDmgFactor[i] * mSimState->stateInit.propHarmonic2Amp;
 
       noise[2] += ( 
         // motor noise
         mNoise[i][2][0] * state.motorImbalance[i].z * rpmDmgFactor[i] +
         //harmonic 1
-        mNoise[i][2][1] * state.motorImbalance[i].z * rpmDmgFactor[i] * mSimState->initPacket.propHarmonic1Amp +
+        mNoise[i][2][1] * state.motorImbalance[i].z * rpmDmgFactor[i] * mSimState->stateInit.propHarmonic1Amp +
         //harmonic 2
-        mNoise[i][2][2] * state.motorImbalance[i].z * rpmDmgFactor[i] * mSimState->initPacket.propHarmonic2Amp) * 0.5f;
+        mNoise[i][2][2] * state.motorImbalance[i].z * rpmDmgFactor[i] * mSimState->stateInit.propHarmonic2Amp) * 0.5f;
     }
 
     // frame noise 
@@ -415,7 +414,7 @@ namespace SimITL{
   }
 
   float Physics::calculateMotors(double dt,
-                              StatePacket& state,
+                              StateInput& state,
                               std::array<MotorState, 4>& motors) 
   {
     const float motor_dir[4] = {1.0, -1.0, -1.0, 1.0};
@@ -435,7 +434,7 @@ namespace SimITL{
     const float speed = std::abs(length(linVel)); // m/s
     float speedFactor = std::min(speed / maxEffectSpeed, 1.0f);
 
-    const auto ambientTemp = mSimState->initPacket.ambientTemp;
+    const auto ambientTemp = mSimState->stateInit.ambientTemp;
 
     for (int i = 0; i < 4; i++) {
 
@@ -476,11 +475,11 @@ namespace SimITL{
       float propDamageEffect = 1.0f - (state.propDamage[i] * propWashNoise);
 
       auto rpm = motors[i].rpm;
-      const auto kV = mSimState->initPacket.motorKV[i];
-      const auto R  = mSimState->initPacket.motorR[i];
-      const auto I0 = mSimState->initPacket.motorI0[i];
-      const auto Rth = mSimState->initPacket.motorRth;
-      const auto Cth = mSimState->initPacket.motorCth;
+      const auto kV = mSimState->stateInit.motorKV[i];
+      const auto R  = mSimState->stateInit.motorR[i];
+      const auto I0 = mSimState->stateInit.motorI0[i];
+      const auto Rth = mSimState->stateInit.motorRth;
+      const auto Cth = mSimState->stateInit.motorCth;
 
       //prevent division by 0
       float vbat = std::max(1.0f, mSimState->batteryState.batVoltageSag);
@@ -493,7 +492,7 @@ namespace SimITL{
       const auto pTorque = propTorque(rpm, vel) * propHealthTorqueFactor;
       const auto netTorque = mTorque - pTorque;
 
-      const auto domega = netTorque / std::max(mSimState->initPacket.propInertia, 0.00000001f);
+      const auto domega = netTorque / std::max(mSimState->stateInit.propInertia, 0.00000001f);
       const auto drpm = (domega * dt) * 60.0f / (2.0f * float(M_PI));
 
       const auto maxdrpm = fabsf(volts * kV - rpm);
@@ -525,7 +524,7 @@ namespace SimITL{
       motors[i].rpm = rpm;
       resPropTorque += motor_dir[i] * mTorque;
 
-      if(motors[i].temp > mSimState->initPacket.motorMaxT){
+      if(motors[i].temp > mSimState->stateInit.motorMaxT){
         motors[i].burnedOut = true;
       }
 
@@ -548,13 +547,13 @@ namespace SimITL{
 
   vec3 Physics::calculatePhysics(
     double dt,
-    StatePacket& state,
+    StateInput& state,
     const std::array<MotorState, 4>& motors,
     float motorsTorque
   ) {
     vec3 acceleration;
 
-    auto gravity_force = vec3{0, -9.81f * mSimState->initPacket.quadMass, 0};
+    auto gravity_force = vec3{0, -9.81f * mSimState->stateInit.quadMass, 0};
 
     // force sum:
     vec3 total_force = gravity_force;
@@ -571,11 +570,11 @@ namespace SimITL{
     auto local_dir = xform_inv(rotation, dir);
 
     vec3 frameDragArea;
-    copy(frameDragArea, mSimState->initPacket.frameDragArea);
+    copy(frameDragArea, mSimState->stateInit.frameDragArea);
     float areaLinear = dot(frameDragArea, abs(local_dir));
     float areaAngular = dot(frameDragArea, local_dir);
 
-    vec3 dragDir = dir * 0.5f * AIR_RHO * vel2 * mSimState->initPacket.frameDragConstant;
+    vec3 dragDir = dir * 0.5f * AIR_RHO * vel2 * mSimState->stateInit.frameDragConstant;
     vec3 dragLinear = dragDir * areaLinear;
     vec3 dragAngular = dragDir * areaAngular;
     total_force = total_force - dragLinear;
@@ -585,7 +584,7 @@ namespace SimITL{
       total_force = total_force + xform(rotation, vec3{0, motors[i].thrust, 0});
     }
 
-    acceleration = total_force / std::max(mSimState->initPacket.quadMass, 0.001f);
+    acceleration = total_force / std::max(mSimState->stateInit.quadMass, 0.001f);
 
     linearVelocity = linearVelocity + acceleration * dt;
     assert(std::isfinite(length(linearVelocity)));
@@ -609,7 +608,7 @@ namespace SimITL{
     }
 
     vec3 inv_inertia;
-    copy(inv_inertia, mSimState->initPacket.quadInvInertia);
+    copy(inv_inertia, mSimState->stateInit.quadInvInertia);
     mat3 inv_tensor = {vec3{inv_inertia[0], 0, 0},
                       vec3{0, inv_inertia[1], 0},
                       vec3{0, 0, inv_inertia[2]}};
@@ -630,27 +629,31 @@ namespace SimITL{
     return acceleration;
   }
 
-  void Physics::updateCommands(int commands){
-    if((commands & CommandType::Repair) == CommandType::Repair){
+  void Physics::updateCommands(CommandType commands){
+    switch (commands)
+    {
+    case CommandType::Repair:
       repair();
-    }
-
-    if((commands & CommandType::Reset) == CommandType::Reset){
+      break;
+    case CommandType::Reset:
       reset();
+      break;
+    default:
+      break;
     }
   }
 
   void Physics::repair(){
-    mSimState->batteryState.batCapacity = mSimState->initPacket.quadBatCapacityCharged;
+    mSimState->batteryState.batCapacity = mSimState->stateInit.quadBatCapacityCharged;
     for(int i = 0; i < 4; i++){
-      mSimState->motorsState[i].temp = mSimState->initPacket.ambientTemp;
+      mSimState->motorsState[i].temp = mSimState->stateInit.ambientTemp;
       mSimState->motorsState[i].burnedOut = false;
     }
   }
 
   void Physics::reset(){
     mSimState->acceleration = {0.0f, 0.0f, 0.0f};
-    mSimState->statePacket.linearVelocity = {0.0f, 0.0f, 0.0f};
-    mSimState->statePacket.angularVelocity = {0.0f, 0.0f, 0.0f};
+    mSimState->stateInput.linearVelocity = {0.0f, 0.0f, 0.0f};
+    mSimState->stateInput.angularVelocity = {0.0f, 0.0f, 0.0f};
   }
 }

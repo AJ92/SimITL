@@ -3,23 +3,11 @@
 
 #include <cstdint>
 
-enum PacketType : int32_t {
-  Error           = 0U,
-  Init            = 1U,
-  State           = 2U,
-  StateUpdate     = 3U,
-  StateOsdUpdate  = 4U,
-
-  //count of types
-  Count           = 5U
-};
-
 enum CommandType : int32_t {
   None      = 0U,
   Stop      = 1U,
   Repair    = 2U,
   Reset     = 4U,
-  Reserved3 = 8U,
 };
 
 struct Vec3F{
@@ -43,9 +31,7 @@ struct GpsData{
 };
 
 // initial quad settings.
-struct InitPacket{
-  PacketType type = PacketType::Init;
-
+struct StateInit{
   float motorKV[4]    = {}; // KV
   float motorR[4]     = {}; // resistance
   float motorI0[4]    = {}; // idle current
@@ -80,13 +66,11 @@ struct InitPacket{
   GpsData gps {};
 
   //eeprom file name
-  uint8_t eepromName[32] = {};
+  uint8_t eepromName[512] = {};
 };
 
 //runtime quad parameters - simulation input
-struct StatePacket{
-  PacketType type = PacketType::State;
-
+struct StateInput{
   float delta = 0.0f;
 
   float rcData[8] {};
@@ -116,15 +100,10 @@ struct StatePacket{
 
   // 1 true 0 false
   uint8_t contact = 0;
-
-  // combination of CommandType (bitmask)
-  int32_t commands = 0;
 };
 
 //simulation output for game
-struct StateUpdatePacket{
-  PacketType type = PacketType::StateUpdate;
-
+struct StateOutput{
   Vec4F orientation{};
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
@@ -133,10 +112,6 @@ struct StateUpdatePacket{
   float motorT[4] {};
 
   bool beep = false;
-};
-
-struct StateOsdUpdatePacket{
-  PacketType type = PacketType::StateOsdUpdate;
 
   uint8_t osd[16*30] {};
 };

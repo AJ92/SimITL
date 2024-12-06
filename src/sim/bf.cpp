@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include "bf.h"
 #include "sitl.h" // access to bf internals
 #include <array>
@@ -22,36 +23,37 @@ namespace SimITL{
       }
     }
 
-    void setRcData(float data[8]) {
+    void setRcData(const float (&data)[8])
+    {
       uint32_t timeUs = BF::micros_passed & 0xFFFFFFFF;
 
       std::array<uint16_t, 8> rcData;
-      for (int i = 0; i < 8; i++) {
+      for (int i = 0; i < 8; i++)
+      {
         rcDataCache[i] = uint16_t(1500 + data[i] * 500);
       }
       rcDataReceptionTimeUs = timeUs;
-      //BF::rxMspFrameReceive(&rcData[0], 8);
-      //hack to trick bf into using sim data...
-      BF::rxRuntimeState.channelCount     = SIMULATOR_MAX_RC_CHANNELS; //SimITL target.h
-      BF::rxRuntimeState.rcReadRawFn      = BF::rxRcReadData;
-      BF::rxRuntimeState.rcFrameStatusFn  = BF::rxRcFrameStatus;
-      BF::rxRuntimeState.rxProvider       = BF::RX_PROVIDER_UDP;
-      BF::rxRuntimeState.rcFrameTimeUsFn  = BF::rxRcFrameTimeUs;
+      // BF::rxMspFrameReceive(&rcData[0], 8);
+      // hack to trick bf into using sim data...
+      BF::rxRuntimeState.channelCount = SIMULATOR_MAX_RC_CHANNELS; // SimITL target.h
+      BF::rxRuntimeState.rcReadRawFn = BF::rxRcReadData;
+      BF::rxRuntimeState.rcFrameStatusFn = BF::rxRcFrameStatus;
+      BF::rxRuntimeState.rxProvider = BF::RX_PROVIDER_UDP;
+      BF::rxRuntimeState.rcFrameTimeUsFn = BF::rxRcFrameTimeUs;
       BF::rxRuntimeState.lastRcFrameTimeUs = timeUs;
     }
 
-    char * EEPROM_FILENAME = 0;
-
     void setEepromFileName(const char* filename){
-      const size_t maxFileSize = 32;
+      fmt::print("BF::setEepromFileName {}\n", filename);
+      const size_t maxFileSize = 512;
       EEPROM_FILENAME = new char[maxFileSize];
       std::fill(EEPROM_FILENAME, EEPROM_FILENAME + maxFileSize, 0);
-      EEPROM_FILENAME[31] = '\0';
+      EEPROM_FILENAME[maxFileSize - 1] = '\0';
       memcpy(EEPROM_FILENAME, filename, strnlen(filename, maxFileSize));
     }
 
     void updateBattery(const SimState& simState){
-      BF::setCellCount(simState.initPacket.quadBatCellCount);
+      BF::setCellCount(simState.stateInit.quadBatCellCount);
       // voltage
       BF::voltageMeter_t* vMeter = BF::getVoltageMeter();
       vMeter->unfiltered      = static_cast<uint16_t>(simState.batteryState.batVoltageSag * 1e2);
@@ -100,24 +102,24 @@ namespace SimITL{
       //if (millis - last_millis > 100) {
       {
         vec3 pos;
-        copy(pos, simState.statePacket.position);
+        copy(pos, simState.stateInput.position);
 
         BF::EnableState(BF::GPS_FIX);
         BF::gpsSol.numSat = 10;
         BF::gpsSol.llh.lat =
-          int32_t(
-            pos[2] * 100 /
-            DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS) +
-          simState.initPacket.gps.lat;
+            int32_t(
+                pos[2] * 100 /
+                DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS) +
+            simState.stateInit.gps.lat;
         BF::gpsSol.llh.lon =
-          int32_t(
-            pos[0] * 100 /
-            (cosLon0 *
-            DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS)) +
-          simState.initPacket.gps.lon;
-        BF::gpsSol.llh.altCm = int32_t(pos[1] * 100) + simState.initPacket.gps.alt;
+            int32_t(
+                pos[0] * 100 /
+                (cosLon0 *
+                 DISTANCE_BETWEEN_TWO_LONGITUDE_POINTS_AT_EQUATOR_IN_HUNDREDS_OF_KILOMETERS)) +
+            simState.stateInit.gps.lon;
+        BF::gpsSol.llh.altCm = int32_t(pos[1] * 100) + simState.stateInit.gps.alt;
         vec3 linearVelocity;
-        copy(linearVelocity, simState.statePacket.linearVelocity);
+        copy(linearVelocity, simState.stateInput.linearVelocity);
         BF::gpsSol.groundSpeed = uint16_t(length(linearVelocity) * 100);
         BF::GPS_update |= BF::GPS_MSP_UPDATE;
 
@@ -129,15 +131,9 @@ namespace SimITL{
       bool osdChanged = false;
       for (int y = 0; y < VIDEO_LINES; y++) {
         for (int x = 0; x < CHARS_PER_LINE; x++) {
-          //TODO: access to osdScreen has to be guarded
-          if(simState.osdUpdatePacket.osd[y * CHARS_PER_LINE + x] != BF::osdScreen[y][x]){
-            osdChanged = true;
-          }
-          simState.osdUpdatePacket.osd[y * CHARS_PER_LINE + x] = BF::osdScreen[y][x];
+          simState.stateOutput.osd[y * CHARS_PER_LINE + x] = BF::osdScreen[y][x];
         }
       }
-      // keep osdChanged true. is reset when the osdUpdate is sent out.
-      simState.osdChanged = simState.osdChanged || osdChanged;
     }
 
     bool update(uint64_t dt, SimState& simState){
@@ -168,7 +164,7 @@ namespace SimITL{
       simState.motorsState[3].pwm = BF::motorsPwm[3] / 1000.0f;
 
       simState.beep = BF::getBeeper();
-      simState.stateUpdatePacket.beep =  simState.beep;
+      simState.stateOutput.beep = simState.beep;
 
       return schedulerExecuted;
     }
@@ -179,6 +175,11 @@ namespace SimITL{
 
     void updateSerial(){
       BF::updateSerialWs();
+    }
+
+    void stopSerial()
+    {
+      BF::stopSerialWs();
     }
   } // namespace bf
 } // namespace SimITL

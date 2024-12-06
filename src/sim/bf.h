@@ -29,7 +29,7 @@ namespace SimITL{
      * \brief Resets rc channels to default values.
      * Prevents initial random channel states.
      */
-    void setRcData(float data[8]);
+    void setRcData(const float (&data)[8]);
 
     /**
      * \brief Sets an eeprom name, where the virtual fc writes to and reads from.
@@ -56,6 +56,7 @@ namespace SimITL{
     void setDebugValue(uint8_t mode, uint8_t index, int16_t value);
 
     void updateSerial();
+    void stopSerial();
   }
 }
 

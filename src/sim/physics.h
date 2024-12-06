@@ -25,15 +25,21 @@ namespace SimITL{
 
       /**
        * \brief Sets the initally received state of the simulation.
-       * \param[in] initPacket The inital state, received from the game client, to init the sim.
+       * \param[in] state The inital state, received from the game client, to init the sim.
        */
-      void initState(const InitPacket& initPacket);
+      void initState(const StateInit& state);
+
+      /**
+       * \brief executes commands.
+       * \param[in] commands The commands to execute.
+       */
+      void updateCommands(CommandType commands);
 
       /**
        * \brief Process the state update, and stages it for update calls.
-       * \param[in] statePacketUpdate The state update received from the game client.
+       * \param[in] state The state update received from the game client.
        */
-      void updateState(const StatePacket& statePacketUpdate);
+      void updateState(const StateInput& state);
 
       /**
        * \brief Updates the gyro input for bf. Includes noise from various sources.
@@ -51,7 +57,7 @@ namespace SimITL{
 
     private:
 
-      void updateRotation(double dt, StatePacket& state);
+      void updateRotation(double dt, StateInput& state);
 
       float motorCurrent(float volts, float kV);
       float motorTorque(float volts, float rpm, float kV, float R, float I0);
@@ -61,19 +67,18 @@ namespace SimITL{
       void updateBat(double dt);
       float shiftedPhase(const double dt, float hz, float phase);
       mat3 motorNoise(const double dt, MotorState& motorState);
-      void updateGyroNoise(const StatePacket& state, vec3& angularNoise);
-      void updateMotorNoise(const double dt, const StatePacket& state, vec3& angularNoise);
+      void updateGyroNoise(const StateInput& state, vec3& angularNoise);
+      void updateMotorNoise(const double dt, const StateInput& state, vec3& angularNoise);
 
       float calculateMotors(double dt,
-                            StatePacket& state,
+                            StateInput& state,
                             std::array<MotorState, 4>& motors);
 
       vec3 calculatePhysics(double dt,
-                            StatePacket& state,
+                            StateInput& state,
                             const std::array<MotorState, 4>& motors,
                             float motorsTorque);
 
-      void updateCommands(int commands);
       void repair();
       void reset();
 

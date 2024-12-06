@@ -73,6 +73,11 @@ namespace SimITL{
         BF::wsUpdate();
       }
 
+      static void stopSerialWs()
+      {
+        BF::wsStop();
+      }
+
       extern uint64_t micros_passed;
       extern int64_t sleep_timer;
 

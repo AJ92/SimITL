@@ -213,10 +213,15 @@ set(BETAFLIGHT_SOURCES
 add_library(
   sitl 
   #OBJECT
-  STATIC
-  #SHARED won't work as pg code has to be part of the binary and is missing if shared
+  # STATIC
+  SHARED # won't work as pg code has to be part of the binary and is missing if shared
   ${BETAFLIGHT_SOURCES} 
 )
+
+if (NOT APPLE)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -T${CMAKE_SOURCE_DIR}/extern/betaflight/src/main/target/SITL/pg.ld")
+endif()
+
 target_compile_features(sitl PUBLIC cxx_std_17)
 
 target_compile_definitions(sitl PUBLIC "SITL")
@@ -237,3 +242,4 @@ target_include_directories(sitl PUBLIC libwebsockets/include)
 
 target_link_libraries(sitl PUBLIC fmt-header-only)
 target_link_libraries(sitl PUBLIC websockets)
+set_property(TARGET websockets PROPERTY POSITION_INDEPENDENT_CODE ON)

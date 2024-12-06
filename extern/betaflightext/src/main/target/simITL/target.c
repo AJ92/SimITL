@@ -275,6 +275,8 @@ char _Min_Stack_Size;
 // fake EEPROM
 static FILE *eepromFd = NULL;
 
+char * EEPROM_FILENAME = 0;
+
 void FLASH_Unlock(void)
 {
    if (eepromFd != NULL) {

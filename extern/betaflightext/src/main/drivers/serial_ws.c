@@ -55,14 +55,15 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 
   //fprintf(stderr, "callback on UART%u, %d reason: %d\n", wsPort->id + 1, wsPort->clientCount, reason);
 
-	struct per_vhost_data__minimal *vhd =
-			(struct per_vhost_data__minimal *)
-			lws_protocol_vh_priv_get(lws_get_vhost(wsi),
-					lws_get_protocol(wsi));
-	int m;
+  struct per_vhost_data__minimal *vhd =
+      (struct per_vhost_data__minimal *)
+          lws_protocol_vh_priv_get(lws_get_vhost(wsi),
+                                   lws_get_protocol(wsi));
+  int m;
 
-	switch (reason) {
-	case LWS_CALLBACK_PROTOCOL_INIT:
+  switch (reason)
+  {
+  case LWS_CALLBACK_PROTOCOL_INIT:
     fprintf(stderr, "LWS_CALLBACK_PROTOCOL_INIT\n");
 		vhd = lws_protocol_vh_priv_zalloc(lws_get_vhost(wsi),
 				lws_get_protocol(wsi),
@@ -135,7 +136,7 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 		break;
 
 	case LWS_CALLBACK_RECEIVE:
-    //(stderr, "LWS_CALLBACK_RECEIVE\n");
+    // fprintf(stderr, "LWS_CALLBACK_RECEIVE\n");
     if (wsPort->wsi == NULL) {
       fprintf(stderr, "wsPort->wsi == NULL\n");
       break;
@@ -157,15 +158,14 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
           wsPort->port.rxBufferHead++;
       }
     }
-    //fprintf(stderr, "Read %d bytes\n", len);
+    // fprintf(stderr, "Read %d bytes\n", len);
+    break;
 
-		break;
+  default:
+    break;
+  }
 
-	default:
-		break;
-	}
-
-	return 0;
+  return 0;
 }
 
 #define LWS_PLUGIN_PROTOCOL_SERIAL \
@@ -229,40 +229,43 @@ static wsPort_t *wsReconfigure(wsPort_t *s, int id) {
 }
 
 serialPort_t *serialWsOpen(int id,
-                        serialReceiveCallbackPtr rxCallback,
-                        void *rxCallbackData,
-                        uint32_t baudRate,
-                        portMode_e mode,
-                        portOptions_e options) {
-    wsPort_t *s = NULL;
+                           serialReceiveCallbackPtr rxCallback,
+                           void *rxCallbackData,
+                           uint32_t baudRate,
+                           portMode_e mode,
+                           portOptions_e options)
+{
+  wsPort_t *s = NULL;
 
 #if defined(USE_UART1) || defined(USE_UART2) || defined(USE_UART3) || \
   defined(USE_UART4) || defined(USE_UART5) || defined(USE_UART6) ||   \
   defined(USE_UART7) || defined(USE_UART8)
-    if (id >= 0 && id < SERIAL_PORT_COUNT) {
-        s = wsReconfigure(&wsSerialPorts[id], id);
-    }
+  if (id >= 0 && id < SERIAL_PORT_COUNT)
+  {
+    s = wsReconfigure(&wsSerialPorts[id], id);
+  }
 #endif
-    if (!s) return NULL;
+  if (!s)
+    return NULL;
 
-    s->port.vTable = &wsVTable;
+  s->port.vTable = &wsVTable;
 
-    // common serial initialisation code should move to serialPort::init()
-    s->port.rxBufferHead = s->port.rxBufferTail = 0;
-    s->port.txBufferHead = s->port.txBufferTail = 0;
-    s->port.rxBufferSize = RX_BUFFER_SIZE;
-    s->port.txBufferSize = TX_BUFFER_SIZE;
-    s->port.rxBuffer = s->rxBuffer;
-    s->port.txBuffer = s->txBuffer;
+  // common serial initialisation code should move to serialPort::init()
+  s->port.rxBufferHead = s->port.rxBufferTail = 0;
+  s->port.txBufferHead = s->port.txBufferTail = 0;
+  s->port.rxBufferSize = RX_BUFFER_SIZE;
+  s->port.txBufferSize = TX_BUFFER_SIZE;
+  s->port.rxBuffer = s->rxBuffer;
+  s->port.txBuffer = s->txBuffer;
 
-    // callback works for IRQ-based RX ONLY
-    s->port.rxCallback = rxCallback;
-    s->port.rxCallbackData = rxCallbackData;
-    s->port.mode = mode;
-    s->port.baudRate = baudRate;
-    s->port.options = options;
+  // callback works for IRQ-based RX ONLY
+  s->port.rxCallback = rxCallback;
+  s->port.rxCallbackData = rxCallbackData;
+  s->port.mode = mode;
+  s->port.baudRate = baudRate;
+  s->port.options = options;
 
-    return (serialPort_t *)s;
+  return (serialPort_t *)s;
 }
 
 uint32_t wsTotalRxBytesWaiting(const serialPort_t *instance) {
@@ -295,43 +298,48 @@ uint32_t wsTotalTxBytesFree(const serialPort_t *instance) {
 }
 
 bool isWsTransmitBufferEmpty(const serialPort_t *instance) {
-    wsPort_t *s = (wsPort_t *)instance;
+  wsPort_t *s = (wsPort_t *)instance;
 
-    bool isEmpty = s->port.txBufferTail == s->port.txBufferHead;
+  bool isEmpty = s->port.txBufferTail == s->port.txBufferHead;
 
-    return isEmpty;
+  return isEmpty;
 }
 
 uint8_t wsRead(serialPort_t *instance) {
-    uint8_t ch;
-    wsPort_t *s = (wsPort_t *)instance;
+  uint8_t ch;
+  wsPort_t *s = (wsPort_t *)instance;
 
-    ch = s->port.rxBuffer[s->port.rxBufferTail];
-    if (s->port.rxBufferTail + 1 >= s->port.rxBufferSize) {
-        s->port.rxBufferTail = 0;
-    } else {
-        s->port.rxBufferTail++;
-    }
+  ch = s->port.rxBuffer[s->port.rxBufferTail];
+  if (s->port.rxBufferTail + 1 >= s->port.rxBufferSize)
+  {
+    s->port.rxBufferTail = 0;
+  }
+  else
+  {
+    s->port.rxBufferTail++;
+  }
 
-    //fprintf(stderr, "%c", ch);
+  // fprintf(stderr, "%c", ch);
 
-    return ch;
+  return ch;
 }
 
 void wsWrite(serialPort_t *instance, uint8_t ch) {
-    wsPort_t *s = (wsPort_t *)instance;
+  wsPort_t *s = (wsPort_t *)instance;
 
-    //fprintf(stderr, "%c", ch);
+  // fprintf(stderr, "%c", ch);
 
-    //TODO: lock/thread sync ?
+  // TODO: lock/thread sync ?
 
-    s->port.txBuffer[s->port.txBufferHead] = ch;
-    if (s->port.txBufferHead + 1 >= s->port.txBufferSize) {
-        s->port.txBufferHead = 0;
-    } else {
-        s->port.txBufferHead++;
-    }
-
+  s->port.txBuffer[s->port.txBufferHead] = ch;
+  if (s->port.txBufferHead + 1 >= s->port.txBufferSize)
+  {
+    s->port.txBufferHead = 0;
+  }
+  else
+  {
+    s->port.txBufferHead++;
+  }
 }
 
 void wsUpdate(){
@@ -340,23 +348,38 @@ void wsUpdate(){
       wsPort_t* ws = &wsSerialPorts[i];
       int n = lws_service(ws->context, 1000);
       if(n<0){
-         fprintf(stderr,
-            "timeout port %u for UART%u failed!!\n",
-            (unsigned)BASE_PORT + ws->id + 1,
-            (unsigned)ws->id + 1);
+        fprintf(stderr,
+                "timeout port %u for UART%u failed!!\n",
+                (unsigned)BASE_PORT + ws->id + 1,
+                (unsigned)ws->id + 1);
       }
 
-      /*
-      * let everybody know we want to write something on them
-      * as soon as they are ready
-      */
+      // let everybody know we want to write something on them
+      // as soon as they are ready
+
       int maxLoops = 2;
-      while(ws->wsi && !isWsTransmitBufferEmpty(&wsSerialPorts[i]) && lws_callback_on_writable(ws->wsi)){
-        if(maxLoops <= 0){
+      while (ws->wsi && !isWsTransmitBufferEmpty(&wsSerialPorts[i]) && lws_callback_on_writable(ws->wsi))
+      {
+        if (maxLoops <= 0)
+        {
           break;
         }
         maxLoops--;
       }
+    }
+  }
+}
+
+void wsStop()
+{
+  for (int i = 0; i < SERIAL_PORT_COUNT; i++)
+  {
+    if (wsPortInitialized[i])
+    {
+      wsPortInitialized[i] = false;
+      wsPort_t *ws = &wsSerialPorts[i];
+      lws_cancel_service(ws->context);
+      lws_context_destroy(ws->context);
     }
   }
 }

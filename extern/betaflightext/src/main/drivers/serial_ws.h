@@ -57,4 +57,4 @@ void wsDataIn(wsPort_t *instance, uint8_t *ch, int size);
 void wsDataOut(wsPort_t *instance);
 
 void wsUpdate();
-
+void wsStop();
