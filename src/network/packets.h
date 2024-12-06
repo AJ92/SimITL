@@ -111,7 +111,7 @@ struct StateOutput{
   float motorRpm[4] {};
   float motorT[4] {};
 
-  bool beep = false;
+  uint8_t beep = 0U;
 
   uint8_t osd[16*30] {};
 };

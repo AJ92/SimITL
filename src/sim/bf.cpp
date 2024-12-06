@@ -163,7 +163,7 @@ namespace SimITL{
       simState.motorsState[2].pwm = BF::motorsPwm[2] / 1000.0f;
       simState.motorsState[3].pwm = BF::motorsPwm[3] / 1000.0f;
 
-      simState.beep = BF::getBeeper();
+      simState.beep = BF::getBeeper() ? 1U : 0U;
       simState.stateOutput.beep = simState.beep;
 
       return schedulerExecuted;

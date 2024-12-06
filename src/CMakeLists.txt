@@ -14,6 +14,10 @@ add_library(
   ${SOURCE_FILES}
 )
 
+if (NOT APPLE)
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -T${CMAKE_SOURCE_DIR}/extern/betaflight/src/main/target/SITL/pg.ld")
+endif()
+
 target_include_directories(SimITL PUBLIC 
   "./"
   "../extern"
@@ -39,4 +43,3 @@ endif (UNIX)
 if (WIN32)
   target_link_libraries(SimITL PUBLIC wsock32 ws2_32)
 endif (WIN32)
-

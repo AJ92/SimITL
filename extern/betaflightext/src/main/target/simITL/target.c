@@ -434,12 +434,12 @@ void systemInit(void) {
 
 void systemReset(void) {
   printf("[system] Reset!\n");
-  exit(0);
+  // exit(0);
 }
 
 void systemResetToBootloader(bootloaderRequestType_e requestType){
   printf("[system] ResetToBootloader!\n");
-  exit(1);
+  // exit(1);
 }
 
 uint64_t micros64(void)

@@ -93,9 +93,11 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
     if (wsPort->clientCount == 0) {
       wsPort->connected = false;
     }
-		break;
+    lwsl_notice("WebSocket closed\n");
+    return -1;
+    break;
 
-	case LWS_CALLBACK_SERVER_WRITEABLE:
+  case LWS_CALLBACK_SERVER_WRITEABLE:
     //fprintf(stderr, "LWS_CALLBACK_SERVER_WRITEABLE\n");
     if (wsPort->wsi == NULL) {
       fprintf(stderr, "wsPort->wsi == NULL\n");
@@ -159,6 +161,11 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
       }
     }
     // fprintf(stderr, "Read %d bytes\n", len);
+    break;
+
+  case LWS_CALLBACK_EVENT_WAIT_CANCELLED:
+    fprintf(stderr, "LWS_CALLBACK_EVENT_WAIT_CANCELLED\n");
+    return -1;
     break;
 
   default:
@@ -353,10 +360,8 @@ void wsUpdate(){
                 (unsigned)BASE_PORT + ws->id + 1,
                 (unsigned)ws->id + 1);
       }
-
       // let everybody know we want to write something on them
       // as soon as they are ready
-
       int maxLoops = 2;
       while (ws->wsi && !isWsTransmitBufferEmpty(&wsSerialPorts[i]) && lws_callback_on_writable(ws->wsi))
       {
@@ -378,7 +383,9 @@ void wsStop()
     {
       wsPortInitialized[i] = false;
       wsPort_t *ws = &wsSerialPorts[i];
-      lws_cancel_service(ws->context);
+      // lws_close_reason(ws->wsi, LWS_CLOSE_STATUS_NORMAL, NULL, 0);
+      // lws_set_timeout(ws->wsi, NO_PENDING_TIMEOUT, LWS_TO_KILL_ASYNC);
+      // lws_cancel_service(ws->context);
       lws_context_destroy(ws->context);
     }
   }

@@ -31,6 +31,7 @@ namespace SimITL{
       BF::updateSerial();
       std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
+    sim->wsThreadRunning = false;
     fmt::print("wsThread end!!\n");
   }
 

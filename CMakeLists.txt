@@ -32,3 +32,9 @@ add_subdirectory(lib/)
 # SimITL-Tester
 # enables testing of a SimITL process without a gameclient
 add_subdirectory(tools/simitl-tester)
+
+
+install(TARGETS simitl-tester SimITL sitl simitlsharedmem
+        RUNTIME DESTINATION bin           COMPONENT Runtime
+        LIBRARY DESTINATION lib           COMPONENT Runtime
+        ARCHIVE DESTINATION lib/simitl    COMPONENT Development)

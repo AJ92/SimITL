@@ -14,7 +14,7 @@ StateInput state = {};
 
 
 uint64_t currentFrame = 0U;
-uint64_t frameRestart = 50U;
+uint64_t frameRestart = 500U;
 
 void updateThread(){
   while(running){

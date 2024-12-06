@@ -213,14 +213,10 @@ set(BETAFLIGHT_SOURCES
 add_library(
   sitl 
   #OBJECT
-  # STATIC
-  SHARED # won't work as pg code has to be part of the binary and is missing if shared
+  STATIC
+  #SHARED won't work as pg code has to be part of the binary and is missing if shared
   ${BETAFLIGHT_SOURCES} 
 )
-
-if (NOT APPLE)
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -T${CMAKE_SOURCE_DIR}/extern/betaflight/src/main/target/SITL/pg.ld")
-endif()
 
 target_compile_features(sitl PUBLIC cxx_std_17)
 
@@ -228,7 +224,7 @@ target_compile_definitions(sitl PUBLIC "SITL")
 target_compile_definitions(sitl PUBLIC "__TARGET__=\"SimITL\"")
 target_compile_definitions(sitl PUBLIC "__REVISION__=\"1\"")
 
-target_compile_definitions(sitl PUBLIC SIMULATOR_BUILD)
+target_compile_definitions(sitl PUBLIC SIMULATOR_BUILD=1)
 target_compile_definitions(sitl PUBLIC "HSE_VALUE=8000000")
 target_compile_definitions(sitl PUBLIC "FLASH_SIZE=2048")
 
@@ -240,6 +236,8 @@ target_include_directories(sitl PUBLIC betaflight/lib/main/dyad)
 target_include_directories(sitl PUBLIC betaflight/src/main)
 target_include_directories(sitl PUBLIC libwebsockets/include)
 
+set_property(TARGET sitl PROPERTY POSITION_INDEPENDENT_CODE ON)
+set_property(TARGET websockets PROPERTY POSITION_INDEPENDENT_CODE ON)
+
 target_link_libraries(sitl PUBLIC fmt-header-only)
 target_link_libraries(sitl PUBLIC websockets)
-set_property(TARGET websockets PROPERTY POSITION_INDEPENDENT_CODE ON)
