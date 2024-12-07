@@ -49,7 +49,7 @@ namespace SimITL{
     BF::resetRcData();
 
     fmt::print("Initializing betaflight\n");
-    BF::setEepromFileName((char *) stateInit.eepromName);
+    BF::setEepromFileName((const char *)stateInit.eepromName);
     BF::init();
 
     start = hr_clock::now();
