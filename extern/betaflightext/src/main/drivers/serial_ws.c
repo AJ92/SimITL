@@ -196,8 +196,6 @@ static wsPort_t *wsReconfigure(wsPort_t *s, int id) {
     return s;
   }
 
-  wsPortInitialized[id] = true;
-
   s->connected = false;
   s->clientCount = 0;
   s->id = id;
@@ -230,7 +228,7 @@ static wsPort_t *wsReconfigure(wsPort_t *s, int id) {
 
   s->context = context;
 
-
+  wsPortInitialized[id] = true;
 
   return s;
 }
@@ -306,10 +304,7 @@ uint32_t wsTotalTxBytesFree(const serialPort_t *instance) {
 
 bool isWsTransmitBufferEmpty(const serialPort_t *instance) {
   wsPort_t *s = (wsPort_t *)instance;
-
-  bool isEmpty = s->port.txBufferTail == s->port.txBufferHead;
-
-  return isEmpty;
+  return s->port.txBufferTail == s->port.txBufferHead;
 }
 
 uint8_t wsRead(serialPort_t *instance) {
@@ -363,7 +358,7 @@ void wsUpdate(){
       // let everybody know we want to write something on them
       // as soon as they are ready
       int maxLoops = 2;
-      while (ws->wsi && !isWsTransmitBufferEmpty(&wsSerialPorts[i]) && lws_callback_on_writable(ws->wsi))
+      while (ws->wsi && !isWsTransmitBufferEmpty((const serialPort_t*)&wsSerialPorts[i]) && lws_callback_on_writable(ws->wsi))
       {
         if (maxLoops <= 0)
         {

@@ -40,6 +40,7 @@
 
 #if defined(SIMULATOR_BUILD)
 #include "drivers/serial_tcp.h"
+#include "drivers/serial_ws.h"
 #endif
 
 #include "drivers/light_led.h"

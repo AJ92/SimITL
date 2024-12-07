@@ -17,6 +17,7 @@ if (GEN_COVERAGE)
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0 -fprofile-arcs -ftest-coverage")
 endif ()
 
+set(CMAKE_SIZEOF_VOID_P 8)  # Enforces 64-bit pointer size
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")  # -g -O0
 
 # sitl lib 
