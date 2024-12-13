@@ -1,4 +1,5 @@
-#!/bin/sh
+#!/bin/bash
+
 #rm -rf ./build
 mkdir build
 mkdir build/win
