@@ -17,7 +17,7 @@ StateInput stateInput = {};
 StateOutput stateOutput = {};
 
 uint64_t currentFrame = 0U;
-uint64_t frameRestart = 5U;
+uint64_t frameRestart = 115U;
 
 void printOsdToCli()
 {
@@ -58,7 +58,7 @@ void updateThread()
     stateOutput = simitl_get_state();
     printOsdToCli();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1116));
+    std::this_thread::sleep_for(std::chrono::milliseconds(116));
     fmt::print(".");
     currentFrame++;
   }
