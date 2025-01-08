@@ -107,6 +107,7 @@ namespace SimITL{
   }
 
   void Sim::stop(){
+    /*
     running = false;
 
     BF::stopSerial();
@@ -114,6 +115,7 @@ namespace SimITL{
     if(wsThread.joinable()){
       wsThread.join();
     }
+    */
   }
 
 }
