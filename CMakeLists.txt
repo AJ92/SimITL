@@ -18,7 +18,7 @@ if (GEN_COVERAGE)
 endif ()
 
 set(CMAKE_SIZEOF_VOID_P 8)  # Enforces 64-bit pointer size
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")  # -g -O0
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O2")  # -g -O0
 
 # sitl lib 
 #  used by the SimITL executable which contains the betaflight sitl target and extensions

@@ -107,6 +107,7 @@ namespace SimITL{
   }
 
   void Sim::stop(){
+    // stopping the ws coms kind of corrupts managed memory of the engine under linux...
     /*
     running = false;
 

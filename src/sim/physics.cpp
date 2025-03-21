@@ -55,6 +55,7 @@ namespace SimITL{
   }
 
   void Physics::updateState(const StateInput& state){
+    BF::setDebugValue(E_DEBUG_SIM, 2, state.contact * 1000);
 
     //angular velocity update
     vec3 currentAngularVelocity;
@@ -72,7 +73,7 @@ namespace SimITL{
     vec3 newLinearVelocity;
     copy(newLinearVelocity, state.linearVelocity);
     vec3 linearVelocityDiff = newLinearVelocity - currentLinearVelocity;
-    float i_linear = (state.contact == 1) ? 0.5f : 0.0f;
+    float i_linear = (state.contact == 1) ? 0.75f : 0.0f;
     //linear interpolation, strength defined by diff between states
     newLinearVelocity = currentLinearVelocity + linearVelocityDiff * i_linear;
 
@@ -531,7 +532,7 @@ namespace SimITL{
       if(i == 3){
         BF::setDebugValue(E_DEBUG_SIM, 0, reverseThrust    * 1000);
         BF::setDebugValue(E_DEBUG_SIM, 1, propDamageEffect * 1000);
-        BF::setDebugValue(E_DEBUG_SIM, 2, mTorque          * 1000);
+        // BF::setDebugValue(E_DEBUG_SIM, 2, mTorque          * 1000);
         BF::setDebugValue(E_DEBUG_SIM, 3, propwashEffect   * 1000);
       }
       
@@ -592,7 +593,7 @@ namespace SimITL{
     
     // moment sum around origin:
     vec3 total_moment = get_axis(rotation, 1) * motorsTorque * 4.0f;
-    
+
     // drag induced momentum
     dragAngular = xform_inv(rotation, dragAngular) * 0.001f;
     dragAngular = clamp(dragAngular, -0.9f, 0.9f);

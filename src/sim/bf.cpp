@@ -68,27 +68,22 @@ namespace SimITL{
 
     void updateGyroAcc(const SimState& simState){
       int16_t x, y, z;
-      if (BF::sensors(BF::SENSOR_ACC)) {
-  //#ifdef USE_QUAT_ORIENTATION
-          BF::imuSetAttitudeQuat(
-             simState.rotation[3],
-            -simState.rotation[2],
-            -simState.rotation[0],
-             simState.rotation[1]
-          );
 
-  //#else
-          x = int16_t(BF::constrain(int(-simState.acc[2] * ACC_SCALE), -32767, 32767));
-          y = int16_t(BF::constrain(int( simState.acc[0] * ACC_SCALE), -32767, 32767));
-          z = int16_t(BF::constrain(int( simState.acc[1] * ACC_SCALE), -32767, 32767));
-          BF::virtualAccSet(BF::virtualAccDev, x, y, z);
-  //#endif
-      }
+      x = int16_t(BF::constrain(int(-simState.acc[2] * ACC_SCALE), -32767, 32767));
+      y = int16_t(BF::constrain(int(simState.acc[0] * ACC_SCALE), -32767, 32767));
+      z = int16_t(BF::constrain(int(simState.acc[1] * ACC_SCALE), -32767, 32767));
+      BF::virtualAccSet(BF::virtualAccDev, x, y, z);
 
       x = int16_t(BF::constrain(int(-simState.gyro[2] * GYRO_SCALE * RAD2DEG), -32767, 32767));
       y = int16_t(BF::constrain(int( simState.gyro[0] * GYRO_SCALE * RAD2DEG), -32767, 32767));
       z = int16_t(BF::constrain(int(-simState.gyro[1] * GYRO_SCALE * RAD2DEG), -32767, 32767));
       BF::virtualGyroSet(BF::virtualGyroDev, x, y, z);
+
+      BF::imuSetAttitudeQuat(
+          simState.rotation[3],
+          -simState.rotation[2],
+          -simState.rotation[0],
+          simState.rotation[1]);
     }
 
     void updateGps(const SimState& simState){
