@@ -30,9 +30,11 @@ namespace SimITL{
       #include "rx/msp.h"
 
       #include "io/displayport_fake.h"
-      #include "io/gps.h"
 
       #include "target.h"
+
+      #include "io/gps.h"
+
       #include "sensors/battery_fake.h"
 
       #include "build/debug.h"

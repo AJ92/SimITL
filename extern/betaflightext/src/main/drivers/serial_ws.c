@@ -37,9 +37,22 @@ struct per_vhost_data__minimal {
 	const struct lws_protocols *protocol;
 };
 
-static int
-callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
-			void *user, void *in, size_t len)
+static void debugBuffer(unsigned char * buffer, int size){
+  unsigned char *localBuffer = buffer;
+  if(size){
+    printf("tx:");
+  }
+  else{
+    return;
+  }
+  while (size--) {
+    printf("%02X.", *localBuffer);
+    localBuffer++;
+  }
+  printf("\n");
+}
+
+static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,void *user, void *in, size_t len)
 {
   const struct lws_protocols * proto = lws_get_protocol(wsi);
 
@@ -111,6 +124,8 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
     if (wsPort->port.txBufferHead < wsPort->port.txBufferTail) {
         // send data till end of buffer
         int chunk = wsPort->port.txBufferSize - wsPort->port.txBufferTail;
+        
+        //debugBuffer((unsigned char *)&wsPort->port.txBuffer[wsPort->port.txBufferTail], chunk);
         m = lws_write(wsi, (unsigned char *)&wsPort->port.txBuffer[wsPort->port.txBufferTail], chunk, LWS_WRITE_BINARY);
         if (m < 0) {
           lwsl_err("ERROR %d writing to ws\n", m);
@@ -127,6 +142,7 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
     }
     int chunk = wsPort->port.txBufferHead - wsPort->port.txBufferTail;
     if (chunk){
+      //debugBuffer((unsigned char *)&wsPort->port.txBuffer[wsPort->port.txBufferTail], chunk);
       m = lws_write(wsi, (unsigned char  *)&wsPort->port.txBuffer[wsPort->port.txBufferTail], chunk, LWS_WRITE_BINARY);
       if (m < 0) {
         lwsl_err("ERROR %d writing to ws\n", m);
@@ -150,9 +166,11 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 
     uint8_t * data = (uint8_t*)in;
     int size = len;
+    //if(size){
+    //  printf("rx:");
+    //}
     while (size--) {
-      //printf("%c", *ch);
-      //printf("%02X", *ch);
+      //printf("%02X.", *data);
       wsPort->port.rxBuffer[wsPort->port.rxBufferHead] = *(data++);
       if (wsPort->port.rxBufferHead + 1 >= wsPort->port.rxBufferSize) {
           wsPort->port.rxBufferHead = 0;
@@ -160,6 +178,7 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
           wsPort->port.rxBufferHead++;
       }
     }
+    //printf("\n");
     // fprintf(stderr, "Read %d bytes\n", len);
     break;
 
@@ -180,8 +199,8 @@ callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,
 		"wsSerial", \
 		callback_minimal, \
 		0, \
-		512, \
-		0, NULL, 512 \
+		0, \
+		0, NULL, 0 \
 	}
 
 static struct lws_protocols protocols[] = {
@@ -233,7 +252,7 @@ static wsPort_t *wsReconfigure(wsPort_t *s, int id) {
   return s;
 }
 
-serialPort_t *serialWsOpen(int id,
+serialPort_t *serialWsOpen(serialPortIdentifier_e identifier,
                            serialReceiveCallbackPtr rxCallback,
                            void *rxCallbackData,
                            uint32_t baudRate,
@@ -242,16 +261,17 @@ serialPort_t *serialWsOpen(int id,
 {
   wsPort_t *s = NULL;
 
-#if defined(USE_UART1) || defined(USE_UART2) || defined(USE_UART3) || \
-  defined(USE_UART4) || defined(USE_UART5) || defined(USE_UART6) ||   \
-  defined(USE_UART7) || defined(USE_UART8)
-  if (id >= 0 && id < SERIAL_PORT_COUNT)
+  int id = findSerialPortIndexByIdentifier(identifier);
+  fprintf(stderr, "[ws-serial] opening websocket '%i'...\n", id);
+  if (id >= 0 && id < (int)ARRAYLEN(wsSerialPorts))
   {
     s = wsReconfigure(&wsSerialPorts[id], id);
   }
-#endif
-  if (!s)
+
+  if (!s) {
     return NULL;
+  }
+
 
   s->port.vTable = &wsVTable;
 
@@ -280,8 +300,7 @@ uint32_t wsTotalRxBytesWaiting(const serialPort_t *instance) {
     if (s->port.rxBufferHead >= s->port.rxBufferTail) {
         count = s->port.rxBufferHead - s->port.rxBufferTail;
     } else {
-        count =
-          s->port.rxBufferSize + s->port.rxBufferHead - s->port.rxBufferTail;
+        count = s->port.rxBufferSize + s->port.rxBufferHead - s->port.rxBufferTail;
     }
 
     return count;
@@ -358,7 +377,7 @@ void wsUpdate(){
       // let everybody know we want to write something on them
       // as soon as they are ready
       int maxLoops = 2;
-      while (ws->wsi && !isWsTransmitBufferEmpty((const serialPort_t*)&wsSerialPorts[i]) && lws_callback_on_writable(ws->wsi))
+      while (ws->wsi && /*!isWsTransmitBufferEmpty((const serialPort_t*)&wsSerialPorts[i]) &&*/ lws_callback_on_writable(ws->wsi))
       {
         if (maxLoops <= 0)
         {

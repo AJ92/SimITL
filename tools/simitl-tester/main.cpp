@@ -16,11 +16,16 @@ StateInit stateInit = {};
 StateInput stateInput = {};
 StateOutput stateOutput = {};
 
-uint64_t currentFrame = 0U;
-uint64_t frameRestart = 115U;
+uint64_t currentFrame = 1U;
+uint64_t framePrintOsd = 120U;
+uint64_t frameRestart = 2000U;
 
 void printOsdToCli()
 {
+  if(currentFrame % framePrintOsd != 0){
+    return;
+  }
+
   fmt::print("\n");
   for (int l = 0; l < 16; l++)
   {
@@ -44,22 +49,22 @@ void updateThread()
 {
   while (running)
   {
-
-    if (currentFrame > frameRestart)
+/*
+    if (currentFrame % frameRestart == 0)
     {
-      currentFrame = 0U;
       fmt::print("\n");
       fmt::print("simitl-tester restarting...\n");
       simitl_stop();
       simitl_init(stateInit);
     }
-
+*/
     simitl_update(stateInput);
     stateOutput = simitl_get_state();
     printOsdToCli();
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(116));
+    std::this_thread::sleep_for(std::chrono::milliseconds(16));
     fmt::print(".");
+
     currentFrame++;
   }
 }
@@ -72,7 +77,7 @@ int main() {
   memcpy(stateInit.eepromName, name, strnlen(name, 512));
   stateInit.eepromName[511] = '\0';
 
-  stateInput.delta = 1.116;
+  stateInput.delta = 0.016;
 
   simitl_init(stateInit);
 

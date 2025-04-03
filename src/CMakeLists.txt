@@ -15,7 +15,7 @@ add_library(
 )
 
 if (NOT APPLE)
-  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -T${CMAKE_SOURCE_DIR}/extern/betaflight/src/main/target/SITL/pg.ld")
+  set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -T${CMAKE_SOURCE_DIR}/extern/betaflight/src/platform/SIMULATOR/link/sitl.ld")
 endif()
 
 target_include_directories(SimITL PUBLIC 

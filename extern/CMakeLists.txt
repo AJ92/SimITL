@@ -36,6 +36,8 @@ set(BETAFLIGHT_SOURCES
   common/typeconversion.c
   common/encoding.c
   #common/string_light.c
+  common/vector.c
+  common/gps_conversion.c
 
   #pg/pg.c
   #pg/motor.c
@@ -81,6 +83,7 @@ set(BETAFLIGHT_SOURCES
   drivers/bus_i2c_soft.c
   drivers/vtx_common.c
   drivers/vtx_table.c
+  drivers/pwm_output.c
 
   fc/init.c
 
@@ -127,7 +130,8 @@ set(BETAFLIGHT_SOURCES
   flight/pid_init.c
   flight/position.c
   #flight/feedforward.c
-  flight/gps_rescue.c
+  flight/gps_rescue_multirotor.c
+  flight/autopilot_multirotor.c
 
   #io/serial.c
   io/beeper.c
@@ -137,12 +141,14 @@ set(BETAFLIGHT_SOURCES
   io/gps.c
   #io/displayport_max7456.c
   io/displayport_msp.c
+  io/serial_resource.c
+  io/gps_virtual.c
 
   cms/cms.c
   cms/cms_menu_blackbox.c
   cms/cms_menu_failsafe.c
   cms/cms_menu_firmware.c
-  cms/cms_menu_gps_rescue.c
+  cms/cms_menu_gps_rescue_multirotor.c
   cms/cms_menu_imu.c
   cms/cms_menu_ledstrip.c
   cms/cms_menu_main.c
@@ -157,7 +163,6 @@ set(BETAFLIGHT_SOURCES
   cms/cms_menu_vtx_smartaudio.c
   cms/cms_menu_vtx_tramp.c
 
-
   osd/osd.c
   osd/osd_elements.c
   osd/osd_warnings.c
@@ -165,6 +170,7 @@ set(BETAFLIGHT_SOURCES
   msp/msp.c
   msp/msp_box.c
   msp/msp_serial.c
+  msp/msp_build_info.c
 
   cli/cli.c
   #cli/settings.c

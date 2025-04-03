@@ -39,7 +39,7 @@ namespace SimITL{
       BF::rxRuntimeState.rcReadRawFn = BF::rxRcReadData;
       BF::rxRuntimeState.rcFrameStatusFn = BF::rxRcFrameStatus;
       BF::rxRuntimeState.rxProvider = BF::RX_PROVIDER_UDP;
-      BF::rxRuntimeState.rcFrameTimeUsFn = BF::rxRcFrameTimeUs;
+      //BF::rxRuntimeState.rcFrameTimeUsFn = BF::rxRcFrameTimeUs;
       BF::rxRuntimeState.lastRcFrameTimeUs = timeUs;
     }
 
@@ -135,7 +135,7 @@ namespace SimITL{
       bool schedulerExecuted = false;
 
       BF::micros_passed += dt;
-
+      
       updateBattery(simState);
       updateGyroAcc(simState);
       updateGps(simState);

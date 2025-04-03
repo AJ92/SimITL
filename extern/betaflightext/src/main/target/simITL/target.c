@@ -29,13 +29,16 @@
 
 #include "common/maths.h"
 
+#include "drivers/adc_impl.h"
 #include "drivers/io.h"
 #include "drivers/dma.h"
-#include "drivers/motor.h"
+#include "drivers/motor_impl.h"
 #include "drivers/serial.h"
 #include "drivers/serial_tcp.h"
 #include "drivers/system.h"
+#include "drivers/time.h"
 #include "drivers/pwm_output.h"
+#include "drivers/pwm_output_impl.h"
 #include "drivers/light_led.h"
 
 #include "drivers/timer.h"
@@ -46,10 +49,14 @@
 const timerHardware_t timerHardware[1]; // unused
 
 #include "drivers/accgyro/accgyro_virtual.h"
+#include "drivers/barometer/barometer_virtual.h"
 #include "flight/imu.h"
 
 #include "config/feature.h"
 #include "config/config.h"
+#include "config/config_streamer.h"
+#include "config/config_streamer_impl.h"
+#include "config/config_eeprom_impl.h"
 #include "scheduler/scheduler.h"
 
 #include "pg/rx.h"
@@ -87,7 +94,7 @@ void timerStart(TIM_TypeDef *tim)
 void failureMode(failureMode_e mode)
 {
     printf("[failureMode]!!! %d\n", mode);
-    while (1);
+    //while (1);
 }
 
 void indicateFailure(failureMode_e mode, int repeatCount)
@@ -102,6 +109,11 @@ int32_t clockCyclesToMicros(int32_t clockCycles)
 }
 
 int32_t clockCyclesTo10thMicros(int32_t clockCycles)
+{
+    return clockCycles;
+}
+
+int32_t clockCyclesTo100thMicros(int32_t clockCycles)
 {
     return clockCycles;
 }
@@ -161,7 +173,7 @@ static motorDevice_t motorPwmDevice; // Forward
 
 pwmOutputPort_t *pwmGetMotors(void)
 {
-    return motors;
+    return pwmMotors;
 }
 
 static float pwmConvertFromExternal(uint16_t externalValue)
@@ -176,14 +188,7 @@ static uint16_t pwmConvertToExternal(float motorValue)
 
 static void pwmDisableMotors(void)
 {
-    motorPwmDevice.enabled = false;
-}
-
-static bool pwmEnableMotors(void)
-{
-    motorPwmDevice.enabled = true;
-
-    return true;
+    // NOOP
 }
 
 static void pwmWriteMotor(uint8_t index, float value)
@@ -200,12 +205,7 @@ static void pwmWriteMotorInt(uint8_t index, uint16_t value)
 
 static void pwmShutdownPulsesForAllMotors(void)
 {
-    motorPwmDevice.enabled = false;
-}
-
-bool pwmIsMotorEnabled(uint8_t index)
-{
-    return motors[index].enabled;
+    // NOOP
 }
 
 static void pwmCompleteMotorUpdate(void)
@@ -221,44 +221,42 @@ void pwmWriteServo(uint8_t index, float value)
     servosPwm[index] = value;
 }
 
-void motorUpdateStartNull(void)
-{
-    return;
-}
-
-static motorDevice_t motorPwmDevice = {
-    .vTable = {
-        .postInit = motorPostInitNull,
-        .convertExternalToMotor = pwmConvertFromExternal,
-        .convertMotorToExternal = pwmConvertToExternal,
-        .enable = pwmEnableMotors,
-        .disable = pwmDisableMotors,
-        .isMotorEnabled = pwmIsMotorEnabled,
-        .updateInit = motorUpdateStartNull,
-        .write = pwmWriteMotor,
-        .writeInt = pwmWriteMotorInt,
-        .updateComplete = pwmCompleteMotorUpdate,
-        .shutdown = pwmShutdownPulsesForAllMotors,
-    }
+static const motorVTable_t vTable = {
+  .postInit = motorPostInitNull,
+  .convertExternalToMotor = pwmConvertFromExternal,
+  .convertMotorToExternal = pwmConvertToExternal,
+  .enable = pwmEnableMotors,
+  .disable = pwmDisableMotors,
+  .isMotorEnabled = pwmIsMotorEnabled,
+  .decodeTelemetry = motorDecodeTelemetryNull,
+  .write = pwmWriteMotor,
+  .writeInt = pwmWriteMotorInt,
+  .updateComplete = pwmCompleteMotorUpdate,
+  .shutdown = pwmShutdownPulsesForAllMotors,
+  .requestTelemetry = NULL,
+  .isMotorIdle = NULL,
+  .getMotorIO = NULL,
 };
 
-motorDevice_t *motorPwmDevInit(const motorDevConfig_t *motorConfig, uint16_t _idlePulse, uint8_t motorCount, bool useUnsyncedPwm)
+bool motorPwmDevInit(motorDevice_t *device, const motorDevConfig_t *motorConfig, uint16_t _idlePulse)
 {
-    UNUSED(motorConfig);
-    UNUSED(useUnsyncedPwm);
+  UNUSED(motorConfig);
 
+  if (!device) {
+      return false;
+  }
+  device->vTable = &vTable;
+  const uint8_t motorCount = device->count;
+  pwmMotorCount = device->count;
+  printf("Initialized motor count %d\n", motorCount);
 
-    printf("Initialized motor count %d\n", motorCount); 
-    idlePulse = _idlePulse;
+  idlePulse = _idlePulse;
 
-    for (int motorIndex = 0; motorIndex < MAX_SUPPORTED_MOTORS && motorIndex < motorCount; motorIndex++) {
-        motors[motorIndex].enabled = true;
-    }
-    motorPwmDevice.count = motorCount; // Never used, but seemingly a right thing to set it anyways.
-    motorPwmDevice.initialized = true;
-    motorPwmDevice.enabled = false;
+  for (int motorIndex = 0; motorIndex < MAX_SUPPORTED_MOTORS && motorIndex < motorCount; motorIndex++) {
+      pwmMotors[motorIndex].enabled = true;
+  }
 
-    return &motorPwmDevice;
+  return true;
 }
 
 // ADC part
@@ -277,11 +275,14 @@ static FILE *eepromFd = NULL;
 
 char * EEPROM_FILENAME = 0;
 
-void FLASH_Unlock(void)
+bool loadEEPROMFromFile(void)
 {
-   if (eepromFd != NULL) {
+    if (eepromFd != NULL) {
         fprintf(stderr, "[FLASH_Unlock] eepromFd != NULL\n");
-        return;
+
+        // simitl can just restart without closing the fileDesc...
+        fclose(eepromFd);
+        //return false;
     }
 
     // open or create
@@ -304,26 +305,28 @@ void FLASH_Unlock(void)
                     EEPROM_FILENAME,
                     n,
                     lSize);
-            return;
+            return false;
         }
     } else {
-        printf("[FLASH_Unlock] created '%s', size = %ld\n",
-               EEPROM_FILENAME,
-               sizeof(eepromData));
+        printf("[FLASH_Unlock] created '%s', size = %ld\n", EEPROM_FILENAME, sizeof(eepromData));
         if ((eepromFd = fopen(EEPROM_FILENAME, "wb+")) == NULL) {
-            fprintf(stderr,
-                    "[FLASH_Unlock] failed to create '%s'\n",
-                    EEPROM_FILENAME);
-            return;
+            fprintf(stderr,  "[FLASH_Unlock] failed to create '%s'\n", EEPROM_FILENAME);
+            return false;
         }
         if (fwrite(eepromData, sizeof(eepromData), 1, eepromFd) != 1) {
-            fprintf(
-              stderr, "[FLASH_Unlock] write failed: %s\n", strerror(errno));
+            fprintf(stderr, "[FLASH_Unlock] write failed: %s\n", strerror(errno));
+              return false;
         }
     }
+    return true;
 }
 
-void FLASH_Lock(void)
+void configUnlock(void)
+{
+    loadEEPROMFromFile();
+}
+
+void configLock(void)
 {
     // flush & close
     if (eepromFd != NULL) {
@@ -337,23 +340,19 @@ void FLASH_Lock(void)
     }
 }
 
-FLASH_Status FLASH_ErasePage(uintptr_t Page_Address)
+configStreamerResult_e configWriteWord(uintptr_t address, config_streamer_buffer_type_t *buffer)
 {
-    UNUSED(Page_Address);
-//    printf("[FLASH_ErasePage]%x\n", Page_Address);
-    return FLASH_COMPLETE;
+    STATIC_ASSERT(CONFIG_STREAMER_BUFFER_SIZE == sizeof(uint32_t), "CONFIG_STREAMER_BUFFER_SIZE does not match written size");
+
+    if ((address >= (uintptr_t)eepromData) && (address + sizeof(uint32_t) <= (uintptr_t)ARRAYEND(eepromData))) {
+        memcpy((void*)address, buffer, sizeof(config_streamer_buffer_type_t));
+        printf("[FLASH_ProgramWord]%p = %08x\n", (void*)address, *((uint32_t*)address));
+    } else {
+        printf("[FLASH_ProgramWord]%p out of range!\n", (void*)address);
+    }
+    return CONFIG_RESULT_SUCCESS;
 }
 
-FLASH_Status FLASH_ProgramWord(uintptr_t addr, uint32_t value)
-{
-    if ((addr >= (uintptr_t)eepromData) && (addr < (uintptr_t)ARRAYEND(eepromData))) {
-        *((uint32_t*)addr) = value;
-        //printf("[FLASH_ProgramWord]%p = %08x\n", (void*)addr, *((uint32_t*)addr));
-    } else {
-            printf("[FLASH_ProgramWord]%p out of range!\n", (void*)addr);
-    }
-    return FLASH_COMPLETE;
-}
 
 void IOConfigGPIO(IO_t io, ioConfig_t cfg)
 {
@@ -392,6 +391,23 @@ void IOLo(IO_t io)
         return;
     }
     IO_GPIO(io)->BRR = IO_Pin(io);
+}
+
+void IOInitGlobal(void)
+{
+    // NOOP
+}
+
+IO_t IOGetByTag(ioTag_t tag)
+{
+    UNUSED(tag);
+    return NULL;
+}
+
+const mcuTypeInfo_t *getMcuTypeInfo(void)
+{
+    static const mcuTypeInfo_t info = { .id = MCU_TYPE_SIMULATOR, .name = "SIMULATOR" };
+    return &info;
 }
 
 void IOToggle(IO_t io)
@@ -463,6 +479,36 @@ void delayMicroseconds(uint32_t usec) {
   microsleep(usec);
 }
 
+void delayMicroseconds_real(uint32_t us)
+{
+    microsleep(us);
+}
+
 void delay(uint32_t ms) {
   microsleep(ms * 1000);
 }
+
+#ifdef _WIN32
+#include <string.h>
+
+char *strsep(char **stringp, const char *delim) {
+    char *rv = *stringp;
+    if (rv) {
+        *stringp += strcspn(*stringp, delim);
+        if (**stringp)
+            *(*stringp)++ = '\0';
+        else
+            *stringp = 0; }
+    return rv;
+}
+#endif
+
+int IO_GPIOPortIdx(IO_t io)
+{
+    if (!io) {
+        return -1;
+    }
+    return (((size_t)IO_GPIO(io) - GPIOA_BASE) >> 10);
+}
+
+bool useDshotTelemetry = false;

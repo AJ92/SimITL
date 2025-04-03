@@ -35,6 +35,7 @@
 
 //#define SIMULATOR_MULTITHREAD
 
+#define SYSTEM_HSE_MHZ 0
 #define DEFAULT_CPU_OVERCLOCK 1
 #define DMA_RAM
 #define DMA_RW_AXI
@@ -87,6 +88,11 @@ extern char* EEPROM_FILENAME;
 #define USE_VIRTUAL_BARO
 
 #define USE_GPS
+#define USE_VIRTUAL_GPS
+#define USE_GPS_NMEA
+#define USE_GPS_UBLOX
+#define USE_GPS_RESCUE
+
 #define USE_BLACKBOX
 
 #define USABLE_TIMER_CHANNEL_COUNT 0
@@ -103,7 +109,7 @@ extern char* EEPROM_FILENAME;
 //#define USE_SOFTSERIAL1
 //#define USE_SOFTSERIAL2
 
-#define SERIAL_PORT_COUNT 8
+//#define SERIAL_PORT_COUNT 8
 
 #define DEFAULT_RX_FEATURE      FEATURE_RX_MSP
 #define DEFAULT_FEATURES        (FEATURE_GPS | FEATURE_TELEMETRY | FEATURE_OSD)
@@ -124,6 +130,7 @@ extern char* EEPROM_FILENAME;
 #undef USE_VCP
 // #undef USE_OSD
 #define USE_OSD
+#define USE_OSD_SD
 #define USE_CMS
 #define USE_MSP_DISPLAYPORT
 #define USE_OSD_OVER_MSP_DISPLAYPORT

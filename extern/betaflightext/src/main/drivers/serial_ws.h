@@ -24,6 +24,8 @@
 #define RX_BUFFER_SIZE 1400
 #define TX_BUFFER_SIZE 1400
 
+#include "io/serial.h"
+
 typedef struct {
     serialPort_t port;
     // prepend with allocated bytes, so ws transmission can prepend protocols stuff without reallocs
@@ -45,12 +47,12 @@ typedef struct {
     uint8_t id;
 } wsPort_t;
 
-serialPort_t *serialWsOpen( int id,
-                            serialReceiveCallbackPtr rxCallback,
-                            void *rxCallbackData,
-                            uint32_t baudRate,
-                            portMode_e mode,
-                            portOptions_e options);
+serialPort_t *serialWsOpen(serialPortIdentifier_e id,
+                           serialReceiveCallbackPtr rxCallback,
+                           void *rxCallbackData,
+                           uint32_t baudRate,
+                           portMode_e mode,
+                           portOptions_e options);
 
 // wsPort API
 void wsDataIn(wsPort_t *instance, uint8_t *ch, int size);

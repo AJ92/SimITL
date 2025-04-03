@@ -20,3 +20,16 @@
  */
 
 #pragma once
+
+#define IOCFG_OUT_PP 0
+#define IOCFG_OUT_OD 0
+#define IOCFG_AF_PP 0
+#define IOCFG_AF_OD 0
+#define IOCFG_IPD 0
+#define IOCFG_IPU 0
+#define IOCFG_IN_FLOATING 0
+
+#define SPIDEV_COUNT 0
+
+// no serial pins are defined for the simulator
+#define SERIAL_TRAIT_PIN_CONFIG 0

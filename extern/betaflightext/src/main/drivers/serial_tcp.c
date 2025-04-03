@@ -23,11 +23,11 @@
  * Dominic Clifton - Serial port abstraction, Separation of common STM32 code
  * for cleanflight, various cleanups. Hamasaki/Timecop - Initial baseflight code
  */
-#include <errno.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "platform.h"
 
@@ -40,31 +40,33 @@
 
 #define BASE_PORT 5760
 
-static const struct serialPortVTable tcpVTable;  // Forward
+static const struct serialPortVTable tcpVTable; // Forward
 static tcpPort_t tcpSerialPorts[SERIAL_PORT_COUNT];
 static bool tcpPortInitialized[SERIAL_PORT_COUNT];
 static bool tcpStart = false;
 bool tcpIsStart(void) {
     return tcpStart;
 }
-static void onData(dyad_Event *e) {
-    tcpPort_t *s = (tcpPort_t *)(e->udata);
-    tcpDataIn(s, (uint8_t *)e->data, e->size);
+static void onData(dyad_Event *e)
+{
+    tcpPort_t* s = (tcpPort_t*)(e->udata);
+    tcpDataIn(s, (uint8_t*)e->data, e->size);
 }
-static void onClose(dyad_Event *e) {
-    tcpPort_t *s = (tcpPort_t *)(e->udata);
+static void onClose(dyad_Event *e)
+{
+    tcpPort_t* s = (tcpPort_t*)(e->udata);
     s->clientCount--;
     s->conn = NULL;
-    fprintf(
-      stderr, "[CLS]UART%u: %d,%d\n", s->id + 1, s->connected, s->clientCount);
+    fprintf(stderr, "[CLS]UART%u: %d,%d\n", s->id + 1U, s->connected, s->clientCount);
     if (s->clientCount == 0) {
         s->connected = false;
     }
 }
-static void onAccept(dyad_Event *e) {
-    tcpPort_t *s = (tcpPort_t *)(e->udata);
-    fprintf(
-      stderr, "New connection on UART%u, %d\n", s->id + 1, s->clientCount);
+
+static void onAccept(dyad_Event *e)
+{
+    tcpPort_t* s = (tcpPort_t*)(e->udata);
+    fprintf(stderr, "New connection on UART%u, %d\n", s->id + 1U, s->clientCount);
 
     s->connected = true;
     if (s->clientCount > 0) {
@@ -72,15 +74,16 @@ static void onAccept(dyad_Event *e) {
         return;
     }
     s->clientCount++;
-    fprintf(
-      stderr, "[NEW]UART%u: %d,%d\n", s->id + 1, s->connected, s->clientCount);
+    fprintf(stderr, "[NEW]UART%u: %d,%d\n", s->id + 1U, s->connected, s->clientCount);
     s->conn = e->remote;
     dyad_setNoDelay(e->remote, 1);
     dyad_setTimeout(e->remote, 120);
     dyad_addListener(e->remote, DYAD_EVENT_DATA, onData, e->udata);
     dyad_addListener(e->remote, DYAD_EVENT_CLOSE, onClose, e->udata);
 }
-static tcpPort_t *tcpReconfigure(tcpPort_t *s, int id) {
+
+static tcpPort_t* tcpReconfigure(tcpPort_t *s, int id)
+{
     if (tcpPortInitialized[id]) {
         fprintf(stderr, "port is already initialized!\n");
         return s;
@@ -111,7 +114,7 @@ static tcpPort_t *tcpReconfigure(tcpPort_t *s, int id) {
     return s;
 }
 
-serialPort_t *serTcpOpen(int id,
+serialPort_t *serTcpOpen(serialPortIdentifier_e identifier,
                          serialReceiveCallbackPtr rxCallback,
                          void *rxCallbackData,
                          uint32_t baudRate,
@@ -119,14 +122,15 @@ serialPort_t *serTcpOpen(int id,
                          portOptions_e options) {
     tcpPort_t *s = NULL;
 
-#if defined(USE_UART1) || defined(USE_UART2) || defined(USE_UART3) || \
-  defined(USE_UART4) || defined(USE_UART5) || defined(USE_UART6) ||   \
-  defined(USE_UART7) || defined(USE_UART8)
-    if (id >= 0 && id < SERIAL_PORT_COUNT) {
+    int id = findSerialPortIndexByIdentifier(identifier);
+
+    if (id >= 0 && id < (int)ARRAYLEN(tcpSerialPorts)) {
         s = tcpReconfigure(&tcpSerialPorts[id], id);
     }
-#endif
-    if (!s) return NULL;
+
+    if (!s) {
+        return NULL;
+    }
 
     s->port.vTable = &tcpVTable;
 
@@ -148,36 +152,36 @@ serialPort_t *serTcpOpen(int id,
     return (serialPort_t *)s;
 }
 
-uint32_t tcpTotalRxBytesWaiting(const serialPort_t *instance) {
-    tcpPort_t *s = (tcpPort_t *)instance;
+static uint32_t tcpTotalRxBytesWaiting(const serialPort_t *instance) {
+    tcpPort_t *s = (tcpPort_t*)instance;
     uint32_t count;
 
     if (s->port.rxBufferHead >= s->port.rxBufferTail) {
         count = s->port.rxBufferHead - s->port.rxBufferTail;
     } else {
-        count =
-          s->port.rxBufferSize + s->port.rxBufferHead - s->port.rxBufferTail;
+        count = s->port.rxBufferSize + s->port.rxBufferHead - s->port.rxBufferTail;
     }
 
     return count;
 }
 
-uint32_t tcpTotalTxBytesFree(const serialPort_t *instance) {
-    tcpPort_t *s = (tcpPort_t *)instance;
+static uint32_t tcpTotalTxBytesFree(const serialPort_t *instance)
+{
+    tcpPort_t *s = (tcpPort_t*)instance;
     uint32_t bytesUsed;
 
     if (s->port.txBufferHead >= s->port.txBufferTail) {
         bytesUsed = s->port.txBufferHead - s->port.txBufferTail;
     } else {
-        bytesUsed =
-          s->port.txBufferSize + s->port.txBufferHead - s->port.txBufferTail;
+        bytesUsed = s->port.txBufferSize + s->port.txBufferHead - s->port.txBufferTail;
     }
     uint32_t bytesFree = (s->port.txBufferSize - 1) - bytesUsed;
 
     return bytesFree;
 }
 
-bool isTcpTransmitBufferEmpty(const serialPort_t *instance) {
+static bool isTcpTransmitBufferEmpty(const serialPort_t *instance)
+{
     tcpPort_t *s = (tcpPort_t *)instance;
 
     bool isEmpty = s->port.txBufferTail == s->port.txBufferHead;
@@ -185,7 +189,8 @@ bool isTcpTransmitBufferEmpty(const serialPort_t *instance) {
     return isEmpty;
 }
 
-uint8_t tcpRead(serialPort_t *instance) {
+static uint8_t tcpRead(serialPort_t *instance)
+{
     uint8_t ch;
     tcpPort_t *s = (tcpPort_t *)instance;
 
@@ -199,7 +204,8 @@ uint8_t tcpRead(serialPort_t *instance) {
     return ch;
 }
 
-void tcpWrite(serialPort_t *instance, uint8_t ch) {
+static void tcpWrite(serialPort_t *instance, uint8_t ch)
+{
     tcpPort_t *s = (tcpPort_t *)instance;
 
     s->port.txBuffer[s->port.txBufferHead] = ch;
@@ -212,7 +218,8 @@ void tcpWrite(serialPort_t *instance, uint8_t ch) {
     tcpDataOut(s);
 }
 
-void tcpDataOut(tcpPort_t *instance) {
+void tcpDataOut(tcpPort_t *instance)
+{
     tcpPort_t *s = (tcpPort_t *)instance;
     if (s->conn == NULL) return;
 
@@ -232,7 +239,8 @@ void tcpDataOut(tcpPort_t *instance) {
     s->port.txBufferTail = s->port.txBufferHead;
 }
 
-void tcpDataIn(tcpPort_t *instance, uint8_t *ch, int size) {
+void tcpDataIn(tcpPort_t *instance, uint8_t* ch, int size)
+{
     tcpPort_t *s = (tcpPort_t *)instance;
 
     while (size--) {
@@ -249,16 +257,16 @@ void tcpDataIn(tcpPort_t *instance, uint8_t *ch, int size) {
 }
 
 static const struct serialPortVTable tcpVTable = {
-  .serialWrite = tcpWrite,
-  .serialTotalRxWaiting = tcpTotalRxBytesWaiting,
-  .serialTotalTxFree = tcpTotalTxBytesFree,
-  .serialRead = tcpRead,
-  .serialSetBaudRate = NULL,
-  .isSerialTransmitBufferEmpty = isTcpTransmitBufferEmpty,
-  .setMode = NULL,
-  .setCtrlLineStateCb = NULL,
-  .setBaudRateCb = NULL,
-  .writeBuf = NULL,
-  .beginWrite = NULL,
-  .endWrite = NULL,
+        .serialWrite = tcpWrite,
+        .serialTotalRxWaiting = tcpTotalRxBytesWaiting,
+        .serialTotalTxFree = tcpTotalTxBytesFree,
+        .serialRead = tcpRead,
+        .serialSetBaudRate = NULL,
+        .isSerialTransmitBufferEmpty = isTcpTransmitBufferEmpty,
+        .setMode = NULL,
+        .setCtrlLineStateCb = NULL,
+        .setBaudRateCb = NULL,
+        .writeBuf = NULL,
+        .beginWrite = NULL,
+        .endWrite = NULL,
 };

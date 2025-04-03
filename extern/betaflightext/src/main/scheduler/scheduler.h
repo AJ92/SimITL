@@ -34,8 +34,11 @@
 
 #define SCHED_TASK_DEFER_MASK           0x07 // Scheduler loop count is masked with this and when 0 long running tasks are processed
 
-#define SCHED_START_LOOP_MIN_US         26   // Wait at start of scheduler loop if gyroTask is nearly due
-#define SCHED_START_LOOP_MAX_US         35
+// was previously in SimITL
+#define SCHED_START_LOOP_MIN_US         155   // Wait at start of scheduler loop if gyroTask is nearly due
+#define SCHED_START_LOOP_MAX_US         335
+//#define SCHED_START_LOOP_MIN_US         1   // Wait at start of scheduler loop if gyroTask is nearly due
+//#define SCHED_START_LOOP_MAX_US         12
 #define SCHED_START_LOOP_DOWN_STEP      50  // Fraction of a us to reduce start loop wait
 #define SCHED_START_LOOP_UP_STEP        1   // Fraction of a us to increase start loop wait
 
@@ -119,6 +122,12 @@ typedef enum {
 #ifdef USE_GPS_RESCUE
     TASK_GPS_RESCUE,
 #endif
+#ifdef USE_ALTITUDE_HOLD
+    TASK_ALTHOLD,
+#endif
+#ifdef USE_POSITION_HOLD
+    TASK_POSHOLD,
+#endif
 #ifdef USE_MAG
     TASK_COMPASS,
 #endif
@@ -127,6 +136,9 @@ typedef enum {
 #endif
 #ifdef USE_RANGEFINDER
     TASK_RANGEFINDER,
+#endif
+#ifdef USE_OPTICALFLOW
+    TASK_OPTICALFLOW,
 #endif
 #if defined(USE_BARO) || defined(USE_GPS)
     TASK_ALTITUDE,
@@ -175,6 +187,12 @@ typedef enum {
 #endif
 #ifdef USE_CRSF_V3
     TASK_SPEED_NEGOTIATION,
+#endif
+#ifdef USE_RC_STATS
+    TASK_RC_STATS,
+#endif
+#ifdef USE_GIMBAL
+    TASK_GIMBAL,
 #endif
 
     /* Count of real tasks */
@@ -227,10 +245,10 @@ void getTaskInfo(taskId_e taskId, taskInfo_t *taskInfo);
 void rescheduleTask(taskId_e taskId, timeDelta_t newPeriodUs);
 void setTaskEnabled(taskId_e taskId, bool newEnabledState);
 timeDelta_t getTaskDeltaTimeUs(taskId_e taskId);
-void schedulerIgnoreTaskStateTime();
-void schedulerIgnoreTaskExecRate();
-void schedulerIgnoreTaskExecTime();
-bool schedulerGetIgnoreTaskExecTime();
+void schedulerIgnoreTaskStateTime(void);
+void schedulerIgnoreTaskExecRate(void);
+void schedulerIgnoreTaskExecTime(void);
+bool schedulerGetIgnoreTaskExecTime(void);
 void schedulerResetTaskStatistics(taskId_e taskId);
 void schedulerResetTaskMaxExecutionTime(taskId_e taskId);
 void schedulerResetCheckFunctionMaxExecutionTime(void);
@@ -240,6 +258,7 @@ void schedulerInit(void);
 void scheduler(void);
 timeUs_t schedulerExecuteTask(task_t *selectedTask, timeUs_t currentTimeUs);
 void taskSystemLoad(timeUs_t currentTimeUs);
+uint32_t getCpuPercentageLate(void);
 void schedulerEnableGyro(void);
 uint16_t getAverageSystemLoadPercent(void);
 float schedulerGetCycleTimeMultiplier(void);
