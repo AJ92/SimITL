@@ -92,6 +92,7 @@ set(BETAFLIGHT_SOURCES
   rx/rx.c
   rx/msp.c
   rx/msp_override.c
+  rx/rc_stats.c
 
   sensors/initialisation.c
   sensors/compass.c

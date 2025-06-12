@@ -134,6 +134,7 @@ extern char* EEPROM_FILENAME;
 #define USE_CMS
 #define USE_MSP_DISPLAYPORT
 #define USE_OSD_OVER_MSP_DISPLAYPORT
+#define USE_RC_STATS
 
 #undef USE_RX_PPM
 #undef USE_RX_PWM
@@ -172,7 +173,7 @@ extern char* EEPROM_FILENAME;
 #undef USE_SERIAL_4WAY_SK_BOOTLOADER
 
 #define USE_GPS_RESCUE
-#define USE_CLI_DEBUG_PRINT
+//#define USE_CLI_DEBUG_PRINT
 
 // cli register dump ?
 #undef USE_GYRO_REGISTER_DUMP
