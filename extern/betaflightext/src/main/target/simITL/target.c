@@ -63,6 +63,7 @@ const timerHardware_t timerHardware[1]; // unused
 #include "pg/motor.h"
 
 #include "rx/rx.h"
+#include "cli/cli.h"
 
 #include "dyad.h"
 
@@ -446,6 +447,7 @@ void systemInit(void) {
   SystemCoreClock = 500 * 1000000;  // fake 500MHz
   micros_passed = 0U;
   sleep_timer = 0;
+  cliMode = false;
 }
 
 void systemReset(void) {
