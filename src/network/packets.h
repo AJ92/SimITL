@@ -10,6 +10,12 @@ enum CommandType : int32_t {
   Reset     = 4U,
 };
 
+enum MotorStatus : int32_t {
+  MotorNone = 0U,
+  MotorBurnedOut = 1U,
+  MotorDamaged = 2U,
+};
+
 struct Vec3F{
   float x = 0.0f;
   float y = 0.0f;
@@ -96,6 +102,7 @@ struct StateInput{
   float propDamage[4] {};
   float groundEffect[4] {};
 
+  // charged battery voltage
   float vbat = 0.0f;
 
   // 1 true 0 false
@@ -108,9 +115,14 @@ struct StateOutput{
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
 
+  // rpm
   float motorRpm[4] {};
+  // temperature
   float motorT[4] {};
+  // status
+  int32_t motorStatus[4] {};
 
+  // beeper on (1) / off (0)
   uint8_t beep = 0U;
 
   uint8_t osd[16*30] {};

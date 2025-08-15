@@ -67,8 +67,9 @@ namespace SimITL{
     // phase freq * 0.01f
     float phaseSlow = 0.0f;
 
-    // is the motor destroyed by over temp
-    bool burnedOut = false;
+    // motor status flags
+    // \see MotorStatus
+    int32_t status = 0;
   };
 
   struct BatteryState {

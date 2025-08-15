@@ -137,6 +137,11 @@ namespace SimITL{
     mSimState->stateOutput.motorT[1] = mSimState->motorsState[1].temp;
     mSimState->stateOutput.motorT[2] = mSimState->motorsState[2].temp;
     mSimState->stateOutput.motorT[3] = mSimState->motorsState[3].temp;
+
+    mSimState->stateOutput.motorStatus[0] = mSimState->motorsState[0].status;
+    mSimState->stateOutput.motorStatus[1] = mSimState->motorsState[1].status;
+    mSimState->stateOutput.motorStatus[2] = mSimState->motorsState[2].status;
+    mSimState->stateOutput.motorStatus[3] = mSimState->motorsState[3].status;
   }
 
   void Physics::updateRotation(double dt, StateInput& state) {
@@ -499,7 +504,7 @@ namespace SimITL{
       const auto maxdrpm = fabsf(volts * kV - rpm);
       rpm += clamp(drpm, -maxdrpm, maxdrpm);
 
-      if(motors[i].burnedOut){
+      if((motors[i].status & MotorStatus::MotorBurnedOut) != 0){
         rpm = 0.0f;
         current = 0.0f;
       }
@@ -526,7 +531,7 @@ namespace SimITL{
       resPropTorque += motor_dir[i] * mTorque;
 
       if(motors[i].temp > mSimState->stateInit.motorMaxT){
-        motors[i].burnedOut = true;
+        motors[i].status = motors[i].status | MotorStatus::MotorBurnedOut;
       }
 
       if(i == 3){
@@ -648,7 +653,7 @@ namespace SimITL{
     mSimState->batteryState.batCapacity = mSimState->stateInit.quadBatCapacityCharged;
     for(int i = 0; i < 4; i++){
       mSimState->motorsState[i].temp = mSimState->stateInit.ambientTemp;
-      mSimState->motorsState[i].burnedOut = false;
+      mSimState->motorsState[i].status = MotorStatus::MotorNone;
     }
   }
 
