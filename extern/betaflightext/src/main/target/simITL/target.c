@@ -452,6 +452,9 @@ void systemInit(void) {
 
 void systemReset(void) {
   printf("[system] Reset!\n");
+
+  //reinits BF
+  init();
   // exit(0);
 }
 
