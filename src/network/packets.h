@@ -67,6 +67,17 @@ struct StateInit{
   float quadBatCapacity = 0.0f;
   Vec3F quadMotorPos[4] {};
 
+  // prop wash starts at this speed in m/s
+  float minPropWashSpeed = 1.0f; 
+  // prop wash reacheas peak at this speed in m/s
+  float maxPropWashSpeed = 18.0f;
+  // max prop wash angle of attack (0.0 = 180 degrees in reverse trust dir)
+  // > 0.0 means propwash in trust dir is concentrated more towards reverse trust dir ( less than 180 deg)
+  // < 0.0 prop was angle of attack is greater than 180 degrees so even angles in thrust dir have an effect
+  float propWashAngleOfAttack = 0.5f;
+  // multiplier for the final prop wash effect
+  float propWashFactor = 1.0f;
+
   float ambientTemp = 0.0f;
 
   GpsData gps {};

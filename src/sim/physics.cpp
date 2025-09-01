@@ -435,12 +435,15 @@ namespace SimITL{
     copy(linVel, state.linearVelocity);
     const auto vel = std::max(0.0f, dot(linVel, up));
 
-    constexpr float maxEffectSpeed = 18.0f; // m/s 18m/s = 64.8km/h
-    constexpr float minEffectSpeed = 1.0f; // m/s 1m/s = 3.6km/h
-    const float speed = std::abs(length(linVel)); // m/s
-    float speedFactor = std::min(speed / maxEffectSpeed, 1.0f);
-
     const auto ambientTemp = mSimState->stateInit.ambientTemp;
+    // prevent div by 0 
+    const float propWashAngleOfAttack = std::min(mSimState->stateInit.propWashAngleOfAttack, 0.99f);
+    const float minPropWashSpeed = mSimState->stateInit.minPropWashSpeed;
+    const float maxPropWashSpeed = std::max(mSimState->stateInit.maxPropWashSpeed, 0.001f); 
+    const float propWashFactor   = mSimState->stateInit.propWashFactor;
+
+    const float speed = std::abs(length(linVel)); // m/s
+    float speedFactor = std::min(speed / maxPropWashSpeed, 1.0f);
 
     for (int i = 0; i < 4; i++) {
 
@@ -456,13 +459,13 @@ namespace SimITL{
       
       // clamp speed so it has no propwash effect at 0 
       // positive value depending on how much thrust is given against actual movement direction of quad
-      float reverseThrust = (speed > minEffectSpeed) ? 
+      float reverseThrust = (speed > minPropWashSpeed) ? 
         std::max(0.0f, dot(normalize(linVel), normalize(motors[i].thrust * up) * -1.0f)) : 0.0f;
-      // keep between 0.0 and 1.0, takes 50% that point the most against movement direction
-      reverseThrust = std::max(0.0f, reverseThrust - 0.5f) * 2.0f;
+      // keep between 0.0 and 1.0, takes x % that point the most against movement direction
+      
+      reverseThrust = std::max(0.0f, (reverseThrust - propWashAngleOfAttack) / (1.0f - propWashAngleOfAttack));
       reverseThrust = reverseThrust * reverseThrust;
 
-      float speedCompressed = static_cast<float>(static_cast<int>(speed)) / maxEffectSpeed;
       float motorPhaseCompressed = static_cast<float>(static_cast<int>(motors[i].phaseSlow * 4.0f)) /  4.0f;
 
       float propWashNoise = motors[i].propWashLowPassFilter.update( 
@@ -472,7 +475,7 @@ namespace SimITL{
       );
 
       // 1.0 - effect
-      float propwashEffect = 1.0f - (speedFactor * propWashNoise * reverseThrust * 0.95f);
+      float propwashEffect = std::max(std::min(1.0f - (speedFactor * propWashNoise * reverseThrust) * propWashFactor, 1.0f), 0.0f);
 
       // 1.0 - effect    reusing prop wash noise to reduce thrust if motor/prop is damaged
       float motorDamageEffect = 1.0f - (std::max(0.0f, 0.5f * (SimplexNoise::noise(motors[i].phase * speed) + 1.0f)) * state.propDamage[i] * propWashNoise);
