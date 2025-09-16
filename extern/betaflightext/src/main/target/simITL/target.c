@@ -29,7 +29,7 @@
 
 #include "common/maths.h"
 
-#include "drivers/adc_impl.h"
+#include "drivers/adc.h"
 #include "drivers/io.h"
 #include "drivers/dma.h"
 #include "drivers/motor_impl.h"
@@ -42,8 +42,6 @@
 #include "drivers/light_led.h"
 
 #include "drivers/timer.h"
-// up to 4.4.0
-//#include "drivers/timer_def.h"
 #include "timer_def.h"
 
 const timerHardware_t timerHardware[1]; // unused

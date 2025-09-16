@@ -17,7 +17,7 @@ add_subdirectory(libwebsockets)
 set(BETAFLIGHT_SOURCES
   build/build_config.c
   build/debug.c
-  build/debug_pin.c
+  #build/debug_pin.c
   build/version.c
 
   #target/SITL/udplink.c
@@ -75,7 +75,7 @@ set(BETAFLIGHT_SOURCES
   #drivers/max7456.c
   #drivers/pwm_esc_detect.c
   drivers/rx/rx_pwm.c
-  drivers/mco.c
+  #drivers/mco.c
   drivers/pinio.c
   drivers/resource.c
   #drivers/sound_beeper.c
@@ -235,12 +235,12 @@ target_compile_definitions(sitl PUBLIC SIMULATOR_BUILD=1)
 target_compile_definitions(sitl PUBLIC "HSE_VALUE=8000000")
 target_compile_definitions(sitl PUBLIC "FLASH_SIZE=2048")
 
-
 #target_include_directories(sitl PUBLIC extern)
 target_include_directories(sitl PUBLIC betaflightext/src/main)
 target_include_directories(sitl PUBLIC betaflightext/src/main/target/simITL)
 target_include_directories(sitl PUBLIC betaflight/lib/main/dyad)
 target_include_directories(sitl PUBLIC betaflight/src/main)
+target_include_directories(sitl PUBLIC betaflight/src/platform/SIMULATOR/include)
 target_include_directories(sitl PUBLIC libwebsockets/include)
 
 set_property(TARGET sitl PROPERTY POSITION_INDEPENDENT_CODE ON)
