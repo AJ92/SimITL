@@ -70,7 +70,7 @@ void initStateDefaults(StateInit& s)
   // Frame
   s.frameDragArea     = { 0.0097f, 0.0081f, 0.0098f };
   s.frameDragConstant = 1.28f;
-  s.quadMass          = 0.092f;
+  s.quadMass          = 0.349f;
   s.quadInvInertia    = { 570.0f, 730.0f, 570.0f };
 
   // Motor positions ~5 inch
