@@ -148,17 +148,35 @@ namespace SimITL{
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
     
-    const auto w = angularVelocity * dt;
-    const mat3 W = {
-      vec3{    1, -w[2],  w[1]}, 
-      vec3{ w[2],     1, -w[0]}, 
-      vec3{-w[1],  w[0],     1}
-    };
-    
+    // 1. Get current rotation as a quaternion
     mat3 rotation;
     copy(rotation, state.rotation);
-    rotation = W * rotation;
-    copy(state.rotation, rotation);
+    quat q = mat3_to_quat(rotation);
+
+    // 2. Create a "pure" quaternion from the angular velocity (w = 0)
+    quat q_w = {
+        angularVelocity[0], 
+        angularVelocity[1], 
+        angularVelocity[2], 
+        0.0f
+    };
+
+    // 3. Integrate quaternion: q_new = q + 0.5 * (w * q) * dt
+    quat q_dot = quat_multiply(q_w, q);
+    
+    // Apply integration manually to guarantee no vec4 operator+ conflicts
+    float half_dt = 0.5f * static_cast<float>(dt);
+    q[0] += q_dot[0] * half_dt;
+    q[1] += q_dot[1] * half_dt;
+    q[2] += q_dot[2] * half_dt;
+    q[3] += q_dot[3] * half_dt;
+
+    // 4. Normalize to snap back to a perfect rigid body rotation
+    q = quat_normalize(q);
+
+    // 5. Convert back to matrix and save
+    mat3 new_rotation = quat_to_mat3(q);
+    copy(state.rotation, new_rotation);
   }
 
   /**
@@ -177,22 +195,41 @@ namespace SimITL{
    * param[in] R Motor's resistance in ohm.
    * param[in] I0 Motor's initial current needed to spin it in A.
    */
-  float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) {
-    const auto backEmfV = rpm / std::max(kV, 0.0001f);
-    auto current = (volts - backEmfV) / std::max(R, 0.0001f);
-
-    if (current > 0)
-        current = std::max(0.0f, current - I0);
-    else if (current < 0)
-        current = std::min(0.0f, current + I0);
-
+float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) {
+    const float min_kV = std::max(kV, 0.0001f);
+    const auto backEmfV = rpm / min_kV;
+    
+    // Calculate raw electrical current (Active braking produces negative current)
+    float current = (volts - backEmfV) / std::max(R, 0.0001f);
 
     // Nm per A
-    const float NmPerA = 8.3f / std::max(kV, 0.0001f);
-    return current * NmPerA;
+    const float NmPerA = 8.3f / min_kV;
+    
+    // Raw electrical torque
+    float torque = current * NmPerA;
 
-    // old version
-    //return current * 60 / (std::max(kV, 0.0001f) * 2.0f * float(M_PI));
+    // Friction torque (I0) always opposes rotation!
+    float friction_torque = I0 * NmPerA;
+
+    if (rpm > 1.0f) {
+        // Spinning forward: friction slows us down
+        torque -= friction_torque;
+    } else if (rpm < -1.0f) {
+        // Spinning backward: friction slows us down
+        torque += friction_torque;
+    } else {
+        // Near zero RPM: Static Friction (Stiction)
+        // Friction resists any applied electrical torque up to its maximum limit.
+        if (torque > friction_torque) {
+            torque -= friction_torque;
+        } else if (torque < -friction_torque) {
+            torque += friction_torque;
+        } else {
+            torque = 0.0f; // Not enough power applied to break static friction, motor stays stopped.
+        }
+    }
+
+    return torque;
   }
 
   float Physics::propThrust(float rpm, float vel) {
@@ -240,12 +277,17 @@ namespace SimITL{
     mSimState->batteryState.batVoltageSag = mSimState->batteryState.batVoltage - vSag - std::abs(randf() * 0.01f);
     mSimState->batteryState.batVoltageSag = clamp(mSimState->batteryState.batVoltageSag, 0.0f, 100.0f);
     
-    float currentSum = 0.0f;
-    for(int i = 0; i < 4; i++){
-      currentSum += std::abs(mSimState->motorsState[i].current);
+    float batteryCurrent = 0.0f;
+
+    for(int i = 0; i < 4; i++)
+    {
+        const float phaseCurrent = std::abs(mSimState->motorsState[i].current);
+        const float duty = clamp(mSimState->motorsState[i].pwm, 0.0f, 1.0f);
+
+        batteryCurrent += phaseCurrent * duty;
     }
 
-    double currentmAs = currentSum / 3.6f;
+    double currentmAs = batteryCurrent / 3.6;
 
     // minimum consumption + random fluctuation clamped to max 1mA/s to account for running electronics
     const double mAMin = std::min(0.2, (0.5 + randf() * 0.25) / std::max(mSimState->batteryState.batVoltageSag, 0.01f));
@@ -496,7 +538,7 @@ namespace SimITL{
       float armed = mSimState->armed ? 0.0f : 1.0f;
 
       const auto volts = motors[i].pwmLowPassFilter.update(motors[i].pwm, dt, 100.0f) * vbat;
-      const auto mTorque = motorTorque(volts, rpm, kV, R, I0) * 0.833f * motorDamageEffect;
+      const auto mTorque = motorTorque(volts, rpm, kV, R, I0) * motorDamageEffect;
       auto current       = motorCurrent(mTorque, kV);
       const auto pTorque = propTorque(rpm, vel) * propHealthTorqueFactor;
       const auto netTorque = mTorque - pTorque;
@@ -600,10 +642,10 @@ namespace SimITL{
     copy(state.linearVelocity, linearVelocity);
     
     // moment sum around origin:
-    vec3 total_moment = get_axis(rotation, 1) * motorsTorque * 4.0f;
+    vec3 total_moment = get_axis(rotation, 1) * motorsTorque;
 
     // drag induced momentum
-    dragAngular = xform_inv(rotation, dragAngular) * 0.001f;
+    dragAngular = xform_inv(rotation, dragAngular) * 0.002f;
     dragAngular = clamp(dragAngular, -0.9f, 0.9f);
 
     total_moment = total_moment + get_axis(rotation, 0) * dragAngular[1];
@@ -616,18 +658,46 @@ namespace SimITL{
       total_moment = total_moment + cross(rad, force);
     }
 
+    vec3 angularVelocity;
+    copy(angularVelocity, state.angularVelocity);
+
+    //angular damping
+    vec3 bodyOmega = xform_inv(rotation, angularVelocity);
+    vec3 rotDrag = {
+        -bodyOmega[0] * fabs(bodyOmega[0]) * 0.0015f, // Pitch damping
+         //left hand coordsystem in SimITL, fixes rot for unity
+         bodyOmega[1] * fabs(bodyOmega[1]) * 0.0002f, // Yaw damping (Roughly 1/8th the resistance!)
+        -bodyOmega[2] * fabs(bodyOmega[2]) * 0.0015f  // Roll damping
+    };
+    // cap damping, can explode to huge values
+    rotDrag = clamp(rotDrag, -2.0f, 2.0f);
+    total_moment = total_moment + xform(rotation, rotDrag);
+
     vec3 inv_inertia;
     copy(inv_inertia, mSimState->stateInit.quadInvInertia);
     mat3 inv_tensor = {vec3{inv_inertia[0], 0, 0},
                       vec3{0, inv_inertia[1], 0},
                       vec3{0, 0, inv_inertia[2]}};
+    mat3 tensor = {
+        vec3{1.0f / inv_inertia[0], 0, 0},
+        vec3{0, 1.0f / inv_inertia[1], 0},
+        vec3{0, 0, 1.0f / inv_inertia[2]}
+    };
+    tensor     = rotation * tensor     * transpose(rotation);
     inv_tensor = rotation * inv_tensor * transpose(rotation);
-    vec3 angularAcc = xform(inv_tensor, total_moment);
+
+    vec3 Iw = xform(tensor, angularVelocity);
+
+    vec3 gyro = cross(angularVelocity, Iw);
+
+    vec3 angularAcc = xform(
+        inv_tensor,
+        total_moment - gyro
+    );
+
     assert(std::isfinite(angularAcc[0]) && std::isfinite(angularAcc[1]) &&
       std::isfinite(angularAcc[2]));
 
-    vec3 angularVelocity;
-    copy(angularVelocity, state.angularVelocity);       // test drag rotation
     angularVelocity = angularVelocity + angularAcc * dt;
 
     angularVelocity = clamp(angularVelocity, -100.0f, 100.0f);

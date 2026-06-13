@@ -9,7 +9,7 @@ namespace SimITL {
   using vec3 = std::array<float, 3>;
   using vec4 = std::array<float, 4>;
   using mat3 = std::array<vec3, 3>;
-  // w, x, y, z
+  // x, y, z, w
   using quat = std::array<float, 4>;
 
   inline vec3 toVec3(const float arr[3]){
@@ -200,6 +200,42 @@ namespace SimITL {
     }
 
     return temp;
+  }
+
+  // Quaternion multiplication (Hamilton product) 
+  inline quat quat_multiply(const quat& a, const quat& b) {
+    return {
+      a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1], // x
+      a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0], // y
+      a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3], // z
+      a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2]  // w
+    };
+  }
+
+  // Renamed to quat_normalize to avoid redefining a vec4 normalize
+  inline quat quat_normalize(const quat& q) {
+    const float l = std::sqrt(q[0] * q[0] + q[1] * q[1] + q[2] * q[2] + q[3] * q[3]);
+    if (l == 0.0f) return {0.0f, 0.0f, 0.0f, 1.0f}; 
+    return {q[0] / l, q[1] / l, q[2] / l, q[3] / l};
+  }
+
+  // Converts a Quaternion back into a 3x3 Rotation Matrix
+  inline mat3 quat_to_mat3(const quat& q) {
+    const float xx = q[0] * q[0];
+    const float yy = q[1] * q[1];
+    const float zz = q[2] * q[2];
+    const float xy = q[0] * q[1];
+    const float xz = q[0] * q[2];
+    const float yz = q[1] * q[2];
+    const float wx = q[3] * q[0];
+    const float wy = q[3] * q[1];
+    const float wz = q[3] * q[2];
+
+    return {
+      vec3{1.0f - 2.0f * (yy + zz), 2.0f * (xy - wz),        2.0f * (xz + wy)},
+      vec3{2.0f * (xy + wz),        1.0f - 2.0f * (xx + zz), 2.0f * (yz - wx)},
+      vec3{2.0f * (xz - wy),        2.0f * (yz + wx),        1.0f - 2.0f * (xx + yy)}
+    };
   }
 
   inline mat3 transpose(const mat3& m) {
