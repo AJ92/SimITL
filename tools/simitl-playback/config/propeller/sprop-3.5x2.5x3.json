@@ -1,0 +1,22 @@
+{
+    "version": 3,
+    "name": "SProp 3.5x2.5x3",
+    "fileName": "sprop-3.5x2.5x3",
+    "buildIn": true,
+    "description": "A 3.5x2.5x3 propeller designed for ultra-light 3.5\" builds, delivering high speed and sharp maneuverability—trading some flight time for aggressive performance.",
+    "bladeCount": 3,
+    "propMaxRpm": 32000.0,
+    "propAudioPitch": 1.0,
+    "propAFactor": 3.710999951778149e-9,
+    "propTorqueFactor": 0.01899999938905239,
+    "propInertia": 0.0000022500000795844245,
+    "propThrustFactor": {
+        "x": -0.000014999999621068127,
+        "y": -0.12999999523162843,
+        "z": 4.199999809265137
+    },
+    "propHarmonic1Amp": 0.10000000149011612,
+    "propHarmonic2Amp": 0.30000001192092898,
+    "mass": 0.002400000113993883,
+    "durability": 0.5
+}

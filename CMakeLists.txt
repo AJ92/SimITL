@@ -34,8 +34,11 @@ add_subdirectory(lib/)
 # enables testing of a SimITL process without a gameclient
 add_subdirectory(tools/simitl-tester)
 
+# SimITL-playback
+# enables playback of ghosts from pr0p
+add_subdirectory(tools/simitl-playback)
 
-install(TARGETS simitl-tester SimITL sitl simitlsharedmem
+install(TARGETS simitl-playback simitl-tester SimITL sitl simitlsharedmem
         RUNTIME DESTINATION bin           COMPONENT Runtime
-        LIBRARY DESTINATION lib           COMPONENT Runtime
+        LIBRARY DESTINATION bin           COMPONENT Runtime
         ARCHIVE DESTINATION lib/simitl    COMPONENT Development)

@@ -1,0 +1,11 @@
+{
+    "version": 0,
+    "name": "cheap 25mW analog vtx",
+    "fileName": "cheap-25mW-analog-vtx",
+    "buildIn": true,
+    "description": "A truly vintage 25mW analog VTX—ultra cheap, questionably functional, and probably found at the bottom of a dusty drawer. Expect occasional video, random static art, and a healthy dose of mystery. Not recommended... but definitely memorable.",
+    "type": "analog",
+    "noiseFloor": 0.019999999552965165,
+    "noiseFactor": 1.600000023841858,
+    "range": 750.0
+}

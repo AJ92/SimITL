@@ -65,7 +65,11 @@ struct StateInit{
   float quadBatCapacityCharged  = 0.0f;
   //battery capacacity rating
   float quadBatCapacity = 0.0f;
+  //motor position in meters
   Vec3F quadMotorPos[4] {};
+
+  // motor direction 1(CW) or -1(CCW) 
+  float quadMotorDir[4] = {}; 
 
   // prop wash starts at this speed in m/s
   float minPropWashSpeed = 1.0f; 
@@ -93,6 +97,11 @@ struct StateInput{
   // Normalised RC channel values in the range -1.0 to 1.0.
   float rcData[8] {};
 
+  // Open-loop motor PWM override [-1.0, 1.0].
+  // When openLoop is non-zero, these values are fed directly to the physics
+  // engine, bypassing the Betaflight PID controller.
+  float motorPwm[4] = {-1.0f, -1.0f, -1.0f, -1.0f};
+
   Vec3F position {};
   Vec3F rotation[3] {};
 
@@ -119,6 +128,9 @@ struct StateInput{
 
   // 1 true 0 false
   uint8_t contact = 0;
+
+  // 1: bypass Betaflight PID and use motorPwm[] directly
+  uint8_t openLoop = 0;
 };
 
 //simulation output for game
@@ -127,12 +139,28 @@ struct StateOutput{
   Vec3F angularVelocity {};
   Vec3F linearVelocity {};
 
+  // motor output signal -1.0 to 1.0
+  float motorOutput[4] {};
+
   // rpm
   float motorRpm[4] {};
-  // temperature
+  // motor torque
+  float motorTorque[4] {};
+  // propeller Torque
+  float propellerTorque[4] {};
+  // net torque
+  float netTorque[4] {};
+  // thrust in Nm
+  float thrust[4] {};
+  // amp draw in A
+  float motorCurrent[4] {};
+  // temperature in deg C
   float motorT[4] {};
   // status
   int32_t motorStatus[4] {};
+
+  // battery voltage in V
+  float batteryVoltage;
 
   // beeper on (1) / off (0)
   uint8_t beep = 0U;

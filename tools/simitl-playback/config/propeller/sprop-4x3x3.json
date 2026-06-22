@@ -1,0 +1,22 @@
+{
+    "version": 3,
+    "name": "SProp 4x3x3",
+    "fileName": "sprop-4x3x3",
+    "buildIn": true,
+    "description": "A durable 4x3x3 propeller designed for reliable performance and longevity. Built to withstand the rigors of flight while maintaining smooth and efficient thrust.",
+    "bladeCount": 3,
+    "propMaxRpm": 36000.0,
+    "propAudioPitch": 1.0,
+    "propAFactor": 6.250000073038109e-9,
+    "propTorqueFactor": 0.008999999612569809,
+    "propInertia": 0.0000024500000108673705,
+    "propThrustFactor": {
+        "x": -0.000011099999937869143,
+        "y": -0.14000000059604646,
+        "z": 9.550000190734864
+    },
+    "propHarmonic1Amp": 0.10000000149011612,
+    "propHarmonic2Amp": 0.30000001192092898,
+    "mass": 0.00279999990016222,
+    "durability": 1.5
+}

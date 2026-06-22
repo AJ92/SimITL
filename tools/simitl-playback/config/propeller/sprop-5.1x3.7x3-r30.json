@@ -1,0 +1,22 @@
+{
+    "version": 2,
+    "name": "SProp 5.1x3.7x3 R30",
+    "fileName": "sprop-5.1x3.7x3-r30",
+    "buildIn": true,
+    "description": "A 5.1x3.7x3 propeller built for extreme thrust and peak performance, perfect for racing quads that demand speed and power.",
+    "bladeCount": 3,
+    "propMaxRpm": 33000.0,
+    "propAudioPitch": 0.8949999809265137,
+    "propAFactor": 1.3310000213095919e-8,
+    "propTorqueFactor": 0.018200000748038293,
+    "propInertia": 0.000008099999831756577,
+    "propThrustFactor": {
+        "x": -0.00003619999915827066,
+        "y": -0.1274999976158142,
+        "z": 18.799999237060548
+    },
+    "propHarmonic1Amp": 0.019999999552965165,
+    "propHarmonic2Amp": 0.03999999910593033,
+    "mass": 0.004000000189989805,
+    "durability": 11.0
+}

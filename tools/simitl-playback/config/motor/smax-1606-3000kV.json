@@ -1,0 +1,19 @@
+{
+    "version": 3,
+    "name": "SMax 1606 3300kV",
+    "fileName": "smax-1606-3000kV",
+    "buildIn": true,
+    "description": "A budget-friendly 1606 motor with average durability. A practical choice for low-cost builds that keep things simple and functional.",
+    "motorKV": 3300.0,
+    "motorR": 0.13500000536441804,
+    "motorI0": 0.800000011920929,
+    "motorRth": 12.0,
+    "motorCth": 9.5,
+    "motorMaxT": 125.0,
+    "motorImbalance": {
+        "x": 13.5,
+        "y": 7.699999809265137,
+        "z": 6.400000095367432
+    },
+    "mass": 0.01899999938905239
+}

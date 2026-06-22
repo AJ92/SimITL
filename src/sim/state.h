@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <deque>
 
 
 namespace SimITL{
@@ -54,6 +55,8 @@ namespace SimITL{
     float mTorque = 0.0f;
     // propeller torque, counter acting motor torque
     float pTorque = 0.0f;
+    // net torque of motor prop combo
+    float netTorque = 0.0f;
 
     // low pass filtered prop wash
     LowPassFilter propWashLowPassFilter{};
@@ -70,6 +73,9 @@ namespace SimITL{
     // motor status flags
     // \see MotorStatus
     int32_t status = 0;
+
+    // History queue to hold previous PWM frames for transport delay
+    std::deque<float> pwmHistory;
   };
 
   struct BatteryState {
@@ -127,6 +133,9 @@ namespace SimITL{
 
     float frameHarmonicPhase1 = 0.0f;
     float frameHarmonicPhase2 = 0.0f;
+
+    float movingCenterOfPressurePhase1 = 0.0f;
+    float movingCenterOfPressurePhase2 = 0.0f;
 
     // time passed in micro seconds
     uint64_t microsPassed = 0;

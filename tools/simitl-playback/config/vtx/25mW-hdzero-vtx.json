@@ -1,0 +1,11 @@
+{
+    "version": 0,
+    "name": "25mW hdzero vtx",
+    "fileName": "25mW-hdzero-vtx",
+    "buildIn": true,
+    "description": "A 25mW HDZero racing VTX designed for clean, low-latency digital video. Optimized for stable transmission with minimal breakup—perfect for competitive environments where clarity counts.",
+    "type": "hdzero",
+    "noiseFloor": 0.009999999776482582,
+    "noiseFactor": 1.0,
+    "range": 800.0
+}

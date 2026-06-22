@@ -1,0 +1,11 @@
+{
+    "version": 0,
+    "name": "25mW analog vtx",
+    "fileName": "25mW-analog-vtx",
+    "buildIn": true,
+    "description": "A budget-friendly 25mW analog VTX offering reliable performance for everyday racing and freestyle. Simple, stable, and proven—perfect for pilots who just want it to work.",
+    "type": "analog",
+    "noiseFloor": 0.014000000432133675,
+    "noiseFactor": 1.399999976158142,
+    "range": 1100.0
+}

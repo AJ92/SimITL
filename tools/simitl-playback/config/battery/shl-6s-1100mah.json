@@ -1,0 +1,12 @@
+{
+    "version": 3,
+    "name": "SHL 6s 1100mah",
+    "fileName": "shl-6s-1100mah",
+    "buildIn": true,
+    "description": "A high-performance 6S 1100mAh racing LiPo battery designed to deliver powerful bursts of speed and sustained voltage for competitive racing quads. Built to handle aggressive flying with reliability.",
+    "maxVoltageSag": 1.0499999523162842,
+    "batCellCount": 6,
+    "batCapacityCharged": 1130.0,
+    "batCapacity": 1100.0,
+    "mass": 0.210999995470047
+}
