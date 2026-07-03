@@ -556,17 +556,34 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
 
       float currentAbs = std::abs(current);
       float thrust = propThrust(rpm, vel) * propHealthFactor * groundEffect * propwashEffect * propDamageEffect;
-      float powerDraw = currentAbs * vbat;
 
-      float cooling = (1.0f - std::exp(-speed * 0.2f)) * 100.0f; // 100 watts max cooling by airspeed
-      constexpr float maxSpeedPropCooling = 20.0f; //72 km/h and cooling by rotation of props has no effect
-      cooling += (std::min(maxSpeedPropCooling, speed) / maxSpeedPropCooling) * thrust * 4.0f;
+      // 1. HEAT GENERATION FIX
+      // Only ~35% of the system ESR (motorR) is inside the copper stator. 
+      // The rest of the resistance is the ESC and Battery, which don't heat the motor.
+      float phaseR = R * 0.35f; 
 
-      // motor pwm is already read by BF::update call
-      //motors[i].pwm = bf::motorsPwm[i] / 1000.0f;
+      // Calculate real-world heat generation
+      // I^2 * R handles copper losses (dominant heat source). 
+      // We add a flat 5% of total power (currentAbs * vbat * 0.05f) to account for Iron and Eddy Current losses.
+      float heatGenerated = (current * current * phaseR) + (currentAbs * vbat * 0.05f);
 
-      //heating
-      motors[i].temp += ( std::max(0.0f,  powerDraw - cooling) - (motors[i].temp - ambientTemp) / Rth) / Cth  * dt;
+     // 2. CONVECTIVE COOLING MULTIPLIER
+      // Airflow dramatically increases the motor's ability to shed heat to the environment.
+      // Base cooling is 1.0x (sitting still on a desk). 
+      // Airspeed and propwash (thrust) dynamically scale up the heat dissipation.
+      float airspeedCooling = speed * 0.5f; 
+      float propwashCooling = thrust * 0.5f; 
+      float coolingMultiplier = 1.0f + airspeedCooling + propwashCooling;
+
+      // 3. HEAT DISSIPATED TO ENVIRONMENT
+      // Heat leaves the motor based on its temp difference from the air and its Thermal Resistance.
+      // High airflow lowers the effective thermal resistance, allowing heat to escape faster.
+      float effectiveRth = Rth / coolingMultiplier;
+      float heatDissipated = (motors[i].temp - ambientTemp) / effectiveRth;
+
+      // 4. UPDATE TEMPERATURE
+      // Thermodynamics: Temp += dt * (Watts_In - Watts_Out) / Joules_per_Degree
+      motors[i].temp += ((heatGenerated - heatDissipated) / Cth) * dt;
 
       motors[i].current = current;
       motors[i].pTorque = pTorque;
