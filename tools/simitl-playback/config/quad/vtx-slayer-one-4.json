@@ -1,0 +1,66 @@
+{
+    "version": 4,
+    "name": "vtx-slayer-one(4\")",
+    "fileName": "vtx-slayer-one-4",
+    "buildIn": true,
+    "description": "A rugged 4\" quadcopter built with budget-friendly components, the vtx-slayer-one has gone through several iterations to refine its durability and flight performance. Slightly on the heavier side but built like a tank, it’s perfect for beginners looking for a tough, reliable platform to start their FPV journey.",
+    "frameDragArea": {
+        "x": 0.00800000037997961,
+        "y": 0.007699999958276749,
+        "z": 0.00800000037997961
+    },
+    "frameDragConstant": 1.2000000476837159,
+    "mass": 0.10199999809265137,
+    "invInertia": {
+        "x": 900.0,
+        "y": 480.0,
+        "z": 900.0
+    },
+    "gyroBaseNoiseAmp": 0.014999999664723874,
+    "gyrobaseNoiseFreq": 333.0,
+    "frameHarmonic1Amp": 0.0,
+    "frameHarmonic1Freq": 0.0,
+    "frameHarmonic2Amp": 0.0,
+    "frameHarmonic2Freq": 0.0,
+    "minPropWashSpeed": 1.0,
+    "maxPropWashSpeed": 9.0,
+    "propWashAngleOfAttack": 0.14000000059604646,
+    "propWashFactor": 1.0,
+    "maxGroundEffectDist": 0.2329999953508377,
+    "motor1Pos": {
+        "x": 0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": -0.05550000071525574
+    },
+    "motor2Pos": {
+        "x": 0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": 0.05550000071525574
+    },
+    "motor3Pos": {
+        "x": -0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": -0.05550000071525574
+    },
+    "motor4Pos": {
+        "x": -0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": 0.05550000071525574
+    },
+    "motorVariance": {
+        "x": 0.9700000286102295,
+        "y": 0.9800000190734863,
+        "z": 0.9649999737739563,
+        "w": 1.0099999904632569
+    },
+    "motor1Dir": -1.0,
+    "motor2Dir": 1.0,
+    "motor3Dir": 1.0,
+    "motor4Dir": -1.0,
+    "motor": "SMax 1606 3300kV",
+    "propeller": "SProp 4x3x3",
+    "battery": "SHL 4s 850mah",
+    "vtx": "25mW analog vtx",
+    "soundMaxRpm": 35000.0,
+    "model": "vtx-slayer-one(4\")"
+}

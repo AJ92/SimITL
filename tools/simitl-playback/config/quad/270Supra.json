@@ -1,0 +1,62 @@
+{
+    "version": 4,
+    "name": "270 Supra(5\" Racer)",
+    "fileName": "270Supra",
+    "buildIn": true,
+    "description": "The 270 Supra: lighter than your lunch, faster than your excuses.",
+    "frameDragArea": {
+        "x": 0.009200000204145909,
+        "y": 0.007499999832361937,
+        "z": 0.009200000204145909
+    },
+    "frameDragConstant": 1.2000000476837159,
+    "mass": 0.09200000017881394,
+    "invInertia": {
+        "x": 770.0,
+        "y": 430.0,
+        "z": 770.0
+    },
+    "gyroBaseNoiseAmp": 0.0002868770097848028,
+    "gyrobaseNoiseFreq": 228.0,
+    "frameHarmonic1Amp": 0.02241639979183674,
+    "frameHarmonic1Freq": 275.0,
+    "frameHarmonic2Amp": 0.009999999776482582,
+    "frameHarmonic2Freq": 326.6629943847656,
+    "minPropWashSpeed": 1.0,
+    "maxPropWashSpeed": 12.0,
+    "propWashAngleOfAttack": 0.10000000149011612,
+    "propWashFactor": 1.0,
+    "maxGroundEffectDist": 0.04232240095734596,
+    "motor1Pos": {
+        "x": 0.0671750009059906,
+        "y": 0.004999999888241291,
+        "z": -0.0671750009059906
+    },
+    "motor2Pos": {
+        "x": 0.0671750009059906,
+        "y": 0.004999999888241291,
+        "z": 0.0671750009059906
+    },
+    "motor3Pos": {
+        "x": -0.0671750009059906,
+        "y": 0.004999999888241291,
+        "z": -0.0671750009059906
+    },
+    "motor4Pos": {
+        "x": -0.0671750009059906,
+        "y": 0.004999999888241291,
+        "z": 0.0671750009059906
+    },
+    "motorVariance": {
+        "x": 0.9599999785423279,
+        "y": 0.9900000095367432,
+        "z": 0.9739999771118164,
+        "w": 1.0
+    },
+    "motor": "Snova 2203.5 2800kV",
+    "propeller": "SProp 5.1x3.5x3",
+    "battery": "SHL 4s 1300mah",
+    "vtx": "25mW hdzero vtx",
+    "soundMaxRpm": 28000.0,
+    "model": "vtx-slayer-one(4\")"
+}

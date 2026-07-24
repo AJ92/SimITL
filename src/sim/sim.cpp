@@ -21,6 +21,10 @@ namespace SimITL{
   }
 
   Sim::~Sim() {
+    running = false;          // signal the wsThread to exit                             
+    //if(wsThread.joinable()) {                                                            
+    //  wsThread.join();      // wait for it                                             
+    //} 
   }
 
   std::chrono::system_clock::time_point start;
@@ -75,8 +79,10 @@ namespace SimITL{
     
     total_delta += stateUpdateDelta;
 
-    //update rc data
-    BF::setRcData(stateInput.rcData);
+    if (!stateInput.openLoop) {
+        // In closed-loop mode, feed RC data to Betaflight for PID processing.
+        BF::setRcData(stateInput.rcData);
+    }
 
     mPhysics.updateState(stateInput);
     
@@ -99,8 +105,15 @@ namespace SimITL{
 
       mPhysics.updateGyro(dt);
   
-      // updates betaflight data and schedules bf update
-      BF::update(DELTA, mSimState);
+      if (mSimState.stateInput.openLoop) {
+          // Open-loop: drive motors directly from input, bypassing Betaflight PID
+          for (int i = 0; i < 4; i++) {
+              mSimState.motorsState[i].pwm = mSimState.stateInput.motorPwm[i];
+          }
+      } else {
+          // Closed-loop: run Betaflight PID to compute motor outputs from RC
+          BF::update(DELTA, mSimState);
+      }
 
       mPhysics.updatePhysics(dt);
     }

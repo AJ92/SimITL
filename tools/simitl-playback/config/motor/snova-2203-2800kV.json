@@ -1,0 +1,19 @@
+{
+    "version": 3,
+    "name": "Snova 2203.5 2800kV",
+    "fileName": "snova-2203-2800kV",
+    "buildIn": true,
+    "description": "Spinning faster than your head after a ‘full send’ session, this motor delivers punchy 4S power in a compact package",
+    "motorKV": 2900.0,
+    "motorR": 0.0729999989271164,
+    "motorI0": 1.100000023841858,
+    "motorRth": 10.0,
+    "motorCth": 9.5,
+    "motorMaxT": 128.0,
+    "motorImbalance": {
+        "x": 13.0,
+        "y": 7.0,
+        "z": 5.0
+    },
+    "mass": 0.01899999938905239
+}

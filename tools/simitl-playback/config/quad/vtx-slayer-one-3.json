@@ -1,0 +1,62 @@
+{
+    "version": 1,
+    "name": "vtx-slayer-one(3\")",
+    "fileName": "vtx-slayer-one-3",
+    "buildIn": true,
+    "description": "3\" quadcopter with design flaws.",
+    "frameDragArea": {
+        "x": 0.007199999876320362,
+        "y": 0.006800000090152025,
+        "z": 0.007199999876320362
+    },
+    "frameDragConstant": 1.2000000476837159,
+    "mass": 0.10300000011920929,
+    "invInertia": {
+        "x": 1100.0,
+        "y": 610.0,
+        "z": 1100.0
+    },
+    "gyroBaseNoiseAmp": 0.014999999664723874,
+    "gyrobaseNoiseFreq": 333.0,
+    "frameHarmonic1Amp": 0.0,
+    "frameHarmonic1Freq": 0.0,
+    "frameHarmonic2Amp": 0.0,
+    "frameHarmonic2Freq": 0.0,
+    "minPropWashSpeed": 1.0,
+    "maxPropWashSpeed": 8.0,
+    "propWashAngleOfAttack": 0.15000000596046449,
+    "propWashFactor": 1.0,
+    "maxGroundEffectDist": 0.2199999988079071,
+    "motor1Pos": {
+        "x": 0.048590000718832019,
+        "y": 0.004999999888241291,
+        "z": -0.05663000047206879
+    },
+    "motor2Pos": {
+        "x": 0.04862000048160553,
+        "y": 0.004999999888241291,
+        "z": 0.056779999285936359
+    },
+    "motor3Pos": {
+        "x": -0.048590000718832019,
+        "y": 0.004999999888241291,
+        "z": -0.05663000047206879
+    },
+    "motor4Pos": {
+        "x": -0.04862000048160553,
+        "y": 0.004999999888241291,
+        "z": 0.056779999285936359
+    },
+    "motorVariance": {
+        "x": 0.9700000286102295,
+        "y": 0.9800000190734863,
+        "z": 0.9649999737739563,
+        "w": 1.0099999904632569
+    },
+    "motor": "AK 1407 3600kV",
+    "propeller": "SProp 3x4x3",
+    "battery": "SHL 4s 850mah",
+    "vtx": "25mW analog vtx",
+    "soundMaxRpm": 36000.0,
+    "model": "vtx-slayer-one(3\")"
+}

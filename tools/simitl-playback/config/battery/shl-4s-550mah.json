@@ -1,0 +1,12 @@
+{
+    "version": 3,
+    "name": "SHL 4s 550mah",
+    "fileName": "shl-4s-550mah",
+    "buildIn": true,
+    "description": "A compact 4S 550mAh LiPo battery, perfect for ultra-light builds that require a balance of power and minimal weight. Delivers reliable performance without slowing you down.",
+    "maxVoltageSag": 1.350000023841858,
+    "batCellCount": 4,
+    "batCapacityCharged": 550.0,
+    "batCapacity": 550.0,
+    "mass": 0.05999999865889549
+}

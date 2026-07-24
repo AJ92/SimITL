@@ -1,0 +1,62 @@
+{
+    "version": 4,
+    "name": "SkyDart350(3.5\")",
+    "fileName": "skydart350",
+    "buildIn": true,
+    "description": "A nimble 3.5\" ultralight quad built for tight lines and sharp maneuvers. SkyDart350 delivers razor-sharp control and effortless agility—perfect for precision flying in tight spaces.",
+    "frameDragArea": {
+        "x": 0.006500000134110451,
+        "y": 0.00559999980032444,
+        "z": 0.006399999838322401
+    },
+    "frameDragConstant": 1.2000000476837159,
+    "mass": 0.050999999046325687,
+    "invInertia": {
+        "x": 1750.0,
+        "y": 970.0,
+        "z": 1750.0
+    },
+    "gyroBaseNoiseAmp": 0.014999999664723874,
+    "gyrobaseNoiseFreq": 333.0,
+    "frameHarmonic1Amp": 0.0,
+    "frameHarmonic1Freq": 0.0,
+    "frameHarmonic2Amp": 0.0,
+    "frameHarmonic2Freq": 0.0,
+    "minPropWashSpeed": 1.0,
+    "maxPropWashSpeed": 9.0,
+    "propWashAngleOfAttack": -0.20000000298023225,
+    "propWashFactor": 1.0,
+    "maxGroundEffectDist": 0.20000000298023225,
+    "motor1Pos": {
+        "x": 0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": -0.05550000071525574
+    },
+    "motor2Pos": {
+        "x": 0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": 0.05550000071525574
+    },
+    "motor3Pos": {
+        "x": -0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": -0.05550000071525574
+    },
+    "motor4Pos": {
+        "x": -0.06700000166893006,
+        "y": 0.004980000201612711,
+        "z": 0.05550000071525574
+    },
+    "motorVariance": {
+        "x": 0.9700000286102295,
+        "y": 0.9900000095367432,
+        "z": 0.9800000190734863,
+        "w": 1.0
+    },
+    "motor": "SMax 1404 3800kV",
+    "propeller": "SProp 3.5x2.5x3",
+    "battery": "SHL 4s 550mah",
+    "vtx": "cheap 25mW analog vtx",
+    "soundMaxRpm": 33000.0,
+    "model": "vtx-slayer-one(4\")"
+}

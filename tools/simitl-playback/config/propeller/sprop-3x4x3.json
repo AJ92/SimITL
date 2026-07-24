@@ -1,0 +1,22 @@
+{
+    "version": 2,
+    "name": "SProp 3x4x3",
+    "fileName": "sprop-3x4x3",
+    "buildIn": true,
+    "description": "An ultra-durable 3x4x3 propeller delivering insane thrust for 3\" builds. Built tough to handle aggressive flying and push your quad to the limit.",
+    "bladeCount": 3,
+    "propMaxRpm": 35000.0,
+    "propAudioPitch": 1.0,
+    "propAFactor": 4.244999907143665e-9,
+    "propTorqueFactor": 0.01549999974668026,
+    "propInertia": 0.0000021500000002561139,
+    "propThrustFactor": {
+        "x": -0.000011099999937869143,
+        "y": -0.11999999731779099,
+        "z": 6.199999809265137
+    },
+    "propHarmonic1Amp": 0.10000000149011612,
+    "propHarmonic2Amp": 0.30000001192092898,
+    "mass": 0.002162500051781535,
+    "durability": 1.149999976158142
+}

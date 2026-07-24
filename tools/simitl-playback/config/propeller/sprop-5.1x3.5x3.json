@@ -1,0 +1,22 @@
+{
+    "version": 2,
+    "name": "SProp 5.1x3.5x3",
+    "fileName": "sprop-5.1x3.5x3",
+    "buildIn": true,
+    "description": "Slicing through the air like a ninja with a triple-spin combo. More thrust, less drama.",
+    "bladeCount": 3,
+    "propMaxRpm": 28000.0,
+    "propAudioPitch": 0.8949999809265137,
+    "propAFactor": 1.2120000114634877e-8,
+    "propTorqueFactor": 0.01730000041425228,
+    "propInertia": 0.000008099999831756577,
+    "propThrustFactor": {
+        "x": -0.000035000000934815034,
+        "y": -0.12999999523162843,
+        "z": 16.5
+    },
+    "propHarmonic1Amp": 0.10000000149011612,
+    "propHarmonic2Amp": 0.30000001192092898,
+    "mass": 0.004000000189989805,
+    "durability": 2.0999999046325685
+}

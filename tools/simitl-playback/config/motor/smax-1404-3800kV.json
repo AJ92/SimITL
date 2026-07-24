@@ -1,0 +1,19 @@
+{
+    "version": 3,
+    "name": "SMax 1404 3800kV",
+    "fileName": "smax-1404-3800kV",
+    "buildIn": true,
+    "description": "A 1404-sized, 3800KV motor optimized for ultra-light builds. Delivers crisp, responsive power while keeping weight to a minimum for agile flight.",
+    "motorKV": 3800.0,
+    "motorR": 0.2199999988079071,
+    "motorI0": 0.6000000238418579,
+    "motorRth": 14.300000190734864,
+    "motorCth": 7.0,
+    "motorMaxT": 125.0,
+    "motorImbalance": {
+        "x": 13.0,
+        "y": 7.0,
+        "z": 6.0
+    },
+    "mass": 0.013000000268220902
+}

@@ -1,0 +1,12 @@
+{
+    "version": 3,
+    "name": "SHL 4s 1300mah",
+    "fileName": "shl-4s-1300mah",
+    "buildIn": true,
+    "description": "The SHL 4S 1300mAh — a lightweight powerhouse that dumps 16.8 volts into your motors faster than you can say ‘land now’… and sags just as fast.",
+    "maxVoltageSag": 1.399999976158142,
+    "batCellCount": 4,
+    "batCapacityCharged": 1305.0,
+    "batCapacity": 1300.0,
+    "mass": 0.16500000655651093
+}

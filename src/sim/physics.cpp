@@ -96,12 +96,16 @@ namespace SimITL{
 
     vec3 angularVelocity;
     copy(angularVelocity, mSimState->stateInput.angularVelocity);
-    angularVelocity = angularVelocity + mSimState->combinedNoise;
 
-    constexpr float cutoffFreq = 300.0f;
-    angularVelocity[0] = mSimState->gyroLowPassFilter[0].update(angularVelocity[0], dt, cutoffFreq);
-    angularVelocity[1] = mSimState->gyroLowPassFilter[1].update(angularVelocity[1], dt, cutoffFreq);
-    angularVelocity[2] = mSimState->gyroLowPassFilter[2].update(angularVelocity[2], dt, cutoffFreq);
+    if(mSimState->stateInput.openLoop == 0){
+      // only add noise in closed loop
+      angularVelocity = angularVelocity + mSimState->combinedNoise;
+    
+      constexpr float cutoffFreq = 500.0f;
+      angularVelocity[0] = mSimState->gyroLowPassFilter[0].update(angularVelocity[0], dt, cutoffFreq);
+      angularVelocity[1] = mSimState->gyroLowPassFilter[1].update(angularVelocity[1], dt, cutoffFreq);
+      angularVelocity[2] = mSimState->gyroLowPassFilter[2].update(angularVelocity[2], dt, cutoffFreq);
+    }
 
     mSimState->gyro = xform_inv(basis, angularVelocity);
 
@@ -125,13 +129,45 @@ namespace SimITL{
     mSimState->stateOutput.orientation.x = orientation[0];
     mSimState->stateOutput.orientation.y = orientation[1];
     mSimState->stateOutput.orientation.z = orientation[2];
+
     mSimState->stateOutput.angularVelocity = mSimState->stateInput.angularVelocity;
+
     mSimState->stateOutput.linearVelocity = mSimState->stateInput.linearVelocity;
+
+    mSimState->stateOutput.motorOutput[0] = mSimState->motorsState[0].pwm;
+    mSimState->stateOutput.motorOutput[1] = mSimState->motorsState[1].pwm;
+    mSimState->stateOutput.motorOutput[2] = mSimState->motorsState[2].pwm;
+    mSimState->stateOutput.motorOutput[3] = mSimState->motorsState[3].pwm;
 
     mSimState->stateOutput.motorRpm[0] = mSimState->motorsState[0].rpm;
     mSimState->stateOutput.motorRpm[1] = mSimState->motorsState[1].rpm;
     mSimState->stateOutput.motorRpm[2] = mSimState->motorsState[2].rpm;
     mSimState->stateOutput.motorRpm[3] = mSimState->motorsState[3].rpm;
+
+    mSimState->stateOutput.motorTorque[0] = mSimState->motorsState[0].mTorque;
+    mSimState->stateOutput.motorTorque[1] = mSimState->motorsState[1].mTorque;
+    mSimState->stateOutput.motorTorque[2] = mSimState->motorsState[2].mTorque;
+    mSimState->stateOutput.motorTorque[3] = mSimState->motorsState[3].mTorque;
+
+    mSimState->stateOutput.propellerTorque[0] = mSimState->motorsState[0].pTorque;
+    mSimState->stateOutput.propellerTorque[1] = mSimState->motorsState[1].pTorque;
+    mSimState->stateOutput.propellerTorque[2] = mSimState->motorsState[2].pTorque;
+    mSimState->stateOutput.propellerTorque[3] = mSimState->motorsState[3].pTorque;
+
+    mSimState->stateOutput.netTorque[0] = mSimState->motorsState[0].netTorque;
+    mSimState->stateOutput.netTorque[1] = mSimState->motorsState[1].netTorque;
+    mSimState->stateOutput.netTorque[2] = mSimState->motorsState[2].netTorque;
+    mSimState->stateOutput.netTorque[3] = mSimState->motorsState[3].netTorque;
+
+    mSimState->stateOutput.thrust[0] = mSimState->motorsState[0].thrust;
+    mSimState->stateOutput.thrust[1] = mSimState->motorsState[1].thrust;
+    mSimState->stateOutput.thrust[2] = mSimState->motorsState[2].thrust;
+    mSimState->stateOutput.thrust[3] = mSimState->motorsState[3].thrust;
+
+    mSimState->stateOutput.motorCurrent[0] = mSimState->motorsState[0].current;
+    mSimState->stateOutput.motorCurrent[1] = mSimState->motorsState[1].current;
+    mSimState->stateOutput.motorCurrent[2] = mSimState->motorsState[2].current;
+    mSimState->stateOutput.motorCurrent[3] = mSimState->motorsState[3].current;
 
     mSimState->stateOutput.motorT[0] = mSimState->motorsState[0].temp;
     mSimState->stateOutput.motorT[1] = mSimState->motorsState[1].temp;
@@ -142,6 +178,8 @@ namespace SimITL{
     mSimState->stateOutput.motorStatus[1] = mSimState->motorsState[1].status;
     mSimState->stateOutput.motorStatus[2] = mSimState->motorsState[2].status;
     mSimState->stateOutput.motorStatus[3] = mSimState->motorsState[3].status;
+
+    mSimState->stateOutput.batteryVoltage = mSimState->batteryState.batVoltage;
   }
 
   void Physics::updateRotation(double dt, StateInput& state) {
@@ -465,9 +503,7 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
                               StateInput& state,
                               std::array<MotorState, 4>& motors) 
   {
-    const float motor_dir[4] = {1.0, -1.0, -1.0, 1.0};
-
-    float resPropTorque = 0;
+    float resTorque = 0;
 
     mat3 rotation;
     copy(rotation, state.rotation);
@@ -493,8 +529,6 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
 
       // 1.0 - effect
       float propHealthFactor = 1.0f - state.propDamage[i];
-      // 1.0 + effect: increasing torque for damaged prop
-      float propHealthTorqueFactor = 1.0f + state.propDamage[i];
 
       // 1.0 + effect: increasing thrust close to ground
       float groundEffect = 1.0f + ((state.groundEffect[i] * state.groundEffect[i]) * 0.7f);
@@ -537,10 +571,42 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
 
       float armed = mSimState->armed ? 0.0f : 1.0f;
 
-      const auto volts = motors[i].pwmLowPassFilter.update(motors[i].pwm, dt, 100.0f) * vbat;
-      const auto mTorque = motorTorque(volts, rpm, kV, R, I0) * motorDamageEffect;
+      float volts = 0.0f;
+
+      
+      if(mSimState->stateInput.openLoop == 1){
+        // immediate response
+        volts = motors[i].pwmLowPassFilter.update(motors[i].pwm, dt, 500.0f) * vbat;
+      }
+      else{
+        //delayed response
+        // 1. Push the fresh PWM command into the history buffer
+        motors[i].pwmHistory.push_back(motors[i].pwm);
+
+        // 2. Define the desired physical ESC/commutation delay (e.g., 1.0 to 4.0 ms)
+        constexpr float esc_delay_seconds = 0.002f; 
+        size_t delay_samples = static_cast<size_t>(esc_delay_seconds / std::max(dt, 0.000001));
+        if (delay_samples < 1) delay_samples = 1;
+
+        // 3. Extract the delayed PWM value once the buffer is full
+        float delayed_pwm = motors[i].pwm;
+        while (motors[i].pwmHistory.size() > delay_samples) {
+            delayed_pwm = motors[i].pwmHistory.front();
+            motors[i].pwmHistory.pop_front();
+        }
+
+        // 4. Feed the delayed PWM into the low-pass filter (which simulates inductive rise time)
+        volts = motors[i].pwmLowPassFilter.update(delayed_pwm, dt, 100.0f) * vbat;
+      }
+
+      // Add this right before `motorTorque()` is called
+      float dynamic_I0 = I0 + (state.propDamage[i] * 2.0f); // 2 extra amps of friction if 100% damaged
+      const auto mTorque = motorTorque(volts, rpm, kV, R, dynamic_I0) * motorDamageEffect;
       auto current       = motorCurrent(mTorque, kV);
-      const auto pTorque = propTorque(rpm, vel) * propHealthTorqueFactor;
+
+      // The aerodynamic drag (torque) drops much less than thrust when a prop is damaged.
+      float torqueHealthFactor = 1.0f - (state.propDamage[i] * 0.5f);   
+      const auto pTorque = propTorque(rpm, vel) * torqueHealthFactor;
       const auto netTorque = mTorque - pTorque;
 
       const auto domega = netTorque / std::max(mSimState->stateInit.propInertia, 0.00000001f);
@@ -571,8 +637,8 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
       // Airflow dramatically increases the motor's ability to shed heat to the environment.
       // Base cooling is 1.0x (sitting still on a desk). 
       // Airspeed and propwash (thrust) dynamically scale up the heat dissipation.
-      float airspeedCooling = speed * 0.5f; 
-      float propwashCooling = thrust * 0.5f; 
+      float airspeedCooling = speed * 0.5f;
+      float propwashCooling = thrust * 0.5f * (1.0f - state.propDamage[i]); // damage reduces cooling
       float coolingMultiplier = 1.0f + airspeedCooling + propwashCooling;
 
       // 3. HEAT DISSIPATED TO ENVIRONMENT
@@ -588,9 +654,12 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
       motors[i].current = current;
       motors[i].pTorque = pTorque;
       motors[i].mTorque = mTorque;
+      motors[i].netTorque = netTorque;
       motors[i].thrust = thrust;
       motors[i].rpm = rpm;
-      resPropTorque += motor_dir[i] * mTorque;
+
+      // use motor direction of quad configuration
+      resTorque += mSimState->stateInit.quadMotorDir[i] * mTorque;
 
       if(motors[i].temp > mSimState->stateInit.motorMaxT){
         motors[i].status = motors[i].status | MotorStatus::MotorBurnedOut;
@@ -610,7 +679,7 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
     BF::setDebugValue(E_DEBUG_SIM, 6, motors[2].thrust * 1000);
     BF::setDebugValue(E_DEBUG_SIM, 7, motors[3].thrust * 1000);
 
-    return resPropTorque;
+    return resTorque;
   }
 
   vec3 Physics::calculatePhysics(
@@ -631,6 +700,7 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
     copy(linearVelocity, state.linearVelocity);
 
     float vel2 = length2(linearVelocity);
+    float vel = sqrt(vel2);
     auto dir = normalize(linearVelocity);
 
     mat3 rotation;
@@ -640,11 +710,9 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
     vec3 frameDragArea;
     copy(frameDragArea, mSimState->stateInit.frameDragArea);
     float areaLinear = dot(frameDragArea, abs(local_dir));
-    float areaAngular = dot(frameDragArea, local_dir);
 
     vec3 dragDir = dir * 0.5f * AIR_RHO * vel2 * mSimState->stateInit.frameDragConstant;
     vec3 dragLinear = dragDir * areaLinear;
-    vec3 dragAngular = dragDir * areaAngular;
     total_force = total_force - dragLinear;
 
     // motors:
@@ -655,19 +723,72 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
     acceleration = total_force / std::max(mSimState->stateInit.quadMass, 0.001f);
 
     linearVelocity = linearVelocity + acceleration * dt;
+
+    // lock quad in open loop
+    if(mSimState->stateInput.openLoop == 1){
+      linearVelocity = {0.0f, 0.0f, 0.0f}; 
+    }
+
     assert(std::isfinite(length(linearVelocity)));
     copy(state.linearVelocity, linearVelocity);
     
     // moment sum around origin:
     vec3 total_moment = get_axis(rotation, 1) * motorsTorque;
 
-    // drag induced momentum
-    dragAngular = xform_inv(rotation, dragAngular) * 0.002f;
-    dragAngular = clamp(dragAngular, -0.9f, 0.9f);
+    // angular drag and tumbling
+    // 1. Get velocity in local frame
+    vec3 local_vel = xform_inv(rotation, linearVelocity);
 
-    total_moment = total_moment + get_axis(rotation, 0) * dragAngular[1];
-    total_moment = total_moment + get_axis(rotation, 1) * dragAngular[0];
-    total_moment = total_moment + get_axis(rotation, 2) * dragAngular[2];
+    // 2. Base Aerodynamic Tumbling (Munk Moment)
+    vec3 drag_profile;
+    copy(drag_profile, mSimState->stateInit.frameDragArea);
+
+    vec3 local_aero_torque;
+    local_aero_torque[0] = local_vel[1] * local_vel[2] * (drag_profile[2] - drag_profile[1]); // Pitch
+    local_aero_torque[1] = local_vel[2] * local_vel[0] * (drag_profile[0] - drag_profile[2]); // Yaw
+    local_aero_torque[2] = local_vel[0] * local_vel[1] * (drag_profile[1] - drag_profile[0]); // Roll
+
+
+    // motor distance acting as lever
+    vec3 motorPos;
+    copy(motorPos, mSimState->stateInit.quadMotorPos[0]);
+    float motorDist = length(motorPos);
+
+    // TUNE THIS: Dynamically scale tumbling tightness based on quad mass.
+    // Prevents small/light quads from washing out at high speeds.
+    const float porosity = 0.1f;
+    float tumbling_tightness = mSimState->stateInit.quadMass * porosity; 
+    local_aero_torque = local_aero_torque * (0.5f * AIR_RHO * mSimState->stateInit.frameDragConstant * motorDist * tumbling_tightness);
+
+    // 3. Simulate Vortex Shedding / Stall Flutter ("The Shake")
+    // Real falling quadcopters flutter violently as air violently separates around the arms
+    if (vel > 2.0f) {
+        // Frequency increases with speed
+        float flutter_freq = vel * 2.0f; 
+        // Magnitude scales with dynamic pressure (v^2)
+        float flutter_mag = 0.00002f * vel2 * areaLinear; 
+
+        // Inject high-frequency wobble into Pitch and Roll (simulating moving center of pressure)
+        
+        //update phase
+        mSimState->movingCenterOfPressurePhase1 = shiftedPhase(dt, flutter_freq, mSimState->movingCenterOfPressurePhase1);
+        mSimState->movingCenterOfPressurePhase2 = shiftedPhase(dt, flutter_freq * 0.85f, mSimState->movingCenterOfPressurePhase2);
+
+        local_aero_torque[0] += sinf(mSimState->movingCenterOfPressurePhase1) * flutter_mag; 
+        local_aero_torque[2] += cosf(mSimState->movingCenterOfPressurePhase2) * flutter_mag; 
+    }
+
+    // 4. Center of Pressure (CoP) Offset
+    // If the drone battery is mounted on the bottom/top, the drag center is NOT the center of mass.
+    // This naturally creates a pendulum "shake".
+    vec3 cop_offset = {0.0f, 0.02f, 0.0f}; // e.g., 2cm above the Center of Mass
+    vec3 local_drag_force = local_dir * (-0.5f * AIR_RHO * vel2 * areaLinear * mSimState->stateInit.frameDragConstant);
+    vec3 cop_torque = cross(cop_offset, local_drag_force);
+
+    local_aero_torque = local_aero_torque + cop_torque;
+
+    // 5. Apply to total moment
+    total_moment = total_moment + xform(rotation, local_aero_torque);
 
     for (auto i = 0u; i < 4; i++) {
       auto force = xform(rotation, {0, motors[i].thrust, 0});
@@ -678,13 +799,17 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
     vec3 angularVelocity;
     copy(angularVelocity, state.angularVelocity);
 
+
+    // Add a small linear damping factor to stabilize low-speed jitters
+    float linear_damping = 0.000001f;
+
     //angular damping
     vec3 bodyOmega = xform_inv(rotation, angularVelocity);
     vec3 rotDrag = {
-        -bodyOmega[0] * fabs(bodyOmega[0]) * 0.0015f, // Pitch damping
+        -bodyOmega[0] * (fabs(bodyOmega[0]) * 0.00001f  * frameDragArea[0]  + linear_damping), // Pitch damping
          //left hand coordsystem in SimITL, fixes rot for unity
-         bodyOmega[1] * fabs(bodyOmega[1]) * 0.0002f, // Yaw damping (Roughly 1/8th the resistance!)
-        -bodyOmega[2] * fabs(bodyOmega[2]) * 0.0015f  // Roll damping
+         bodyOmega[1] * (fabs(bodyOmega[1]) * 0.000002f * frameDragArea[1]  + linear_damping), // Yaw damping (Roughly 1/8th the resistance!)
+        -bodyOmega[2] * (fabs(bodyOmega[2]) * 0.00001f  * frameDragArea[2]  + linear_damping)  // Roll damping
     };
     // cap damping, can explode to huge values
     rotDrag = clamp(rotDrag, -2.0f, 2.0f);

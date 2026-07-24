@@ -1,0 +1,19 @@
+{
+    "version": 1,
+    "name": "AK 1407 3600kV",
+    "fileName": "ak-1407-3600kV",
+    "buildIn": true,
+    "description": "Atlas Kinetix, know for their durable motor design, produced this 1407 motor for 3\" quadcopters.",
+    "motorKV": 3600.0,
+    "motorR": 0.15000000596046449,
+    "motorI0": 0.7300000190734863,
+    "motorRth": 12.5,
+    "motorCth": 8.0,
+    "motorMaxT": 125.0,
+    "motorImbalance": {
+        "x": 13.5,
+        "y": 7.699999809265137,
+        "z": 6.400000095367432
+    },
+    "mass": 0.01600000075995922
+}

@@ -1,0 +1,62 @@
+{
+    "version": 4,
+    "name": "PropEater(5\" Racer)",
+    "fileName": "propeater-5",
+    "buildIn": true,
+    "description": "A no-compromise 5\" racing beast built for raw speed and aggressive handling. PropEater chews through the track with precision and power—made for pilots who fly on the edge.",
+    "frameDragArea": {
+        "x": 0.009700000286102295,
+        "y": 0.008100000210106373,
+        "z": 0.009800000116229058
+    },
+    "frameDragConstant": 1.2000000476837159,
+    "mass": 0.10999999940395355,
+    "invInertia": {
+        "x": 550.0,
+        "y": 310.0,
+        "z": 550.0
+    },
+    "gyroBaseNoiseAmp": 0.004999999888241291,
+    "gyrobaseNoiseFreq": 233.0,
+    "frameHarmonic1Amp": 0.017500000074505807,
+    "frameHarmonic1Freq": 210.0,
+    "frameHarmonic2Amp": 0.004000000189989805,
+    "frameHarmonic2Freq": 420.0,
+    "minPropWashSpeed": 1.0,
+    "maxPropWashSpeed": 20.0,
+    "propWashAngleOfAttack": 0.10000000149011612,
+    "propWashFactor": 1.100000023841858,
+    "maxGroundEffectDist": 0.3330000042915344,
+    "motor1Pos": {
+        "x": 0.07999999821186066,
+        "y": 0.004980000201612711,
+        "z": -0.07999999821186066
+    },
+    "motor2Pos": {
+        "x": 0.07999999821186066,
+        "y": 0.004980000201612711,
+        "z": 0.07999999821186066
+    },
+    "motor3Pos": {
+        "x": -0.07999999821186066,
+        "y": 0.004980000201612711,
+        "z": -0.07999999821186066
+    },
+    "motor4Pos": {
+        "x": -0.07999999821186066,
+        "y": 0.004980000201612711,
+        "z": 0.07999999821186066
+    },
+    "motorVariance": {
+        "x": 0.9599999785423279,
+        "y": 0.9900000095367432,
+        "z": 0.9739999771118164,
+        "w": 1.0
+    },
+    "motor": "SMax 2208 1900kV",
+    "propeller": "SProp 5.1x3.7x3 R30",
+    "battery": "SHL 6s 1100mah",
+    "vtx": "25mW hdzero vtx",
+    "soundMaxRpm": 33000.0,
+    "model": "vtx-slayer-one(4\")"
+}

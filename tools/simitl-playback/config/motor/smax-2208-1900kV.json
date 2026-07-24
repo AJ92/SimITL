@@ -1,0 +1,19 @@
+{
+    "version": 3,
+    "name": "SMax 2208 1900kV",
+    "fileName": "smax-2208-1900kV",
+    "buildIn": true,
+    "description": "A 2208-sized, 1900KV motor engineered for peak racing performance. Delivers powerful, high-torque thrust for fast acceleration and top-end speed on the track.",
+    "motorKV": 1900.0,
+    "motorR": 0.10499999672174454,
+    "motorI0": 1.2000000476837159,
+    "motorRth": 7.0,
+    "motorCth": 19.0,
+    "motorMaxT": 128.0,
+    "motorImbalance": {
+        "x": 8.0,
+        "y": 5.0,
+        "z": 4.0
+    },
+    "mass": 0.03799999877810478
+}
