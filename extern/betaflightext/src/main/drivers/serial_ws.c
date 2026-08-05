@@ -60,7 +60,7 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,vo
     return 0;
   }
 
-  if(strcmp(proto->name,"wsSerial") != 0){
+  if(strcmp(proto->name,"binary") != 0){
     return 0;
   }
 
@@ -196,7 +196,7 @@ static int callback_minimal(struct lws *wsi, enum lws_callback_reasons reason,vo
 
 #define LWS_PLUGIN_PROTOCOL_SERIAL \
 	{ \
-		"wsSerial", \
+		"binary", \
 		callback_minimal, \
 		0, \
 		0, \
