@@ -325,19 +325,17 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
         batteryCurrent += phaseCurrent * duty;
     }
 
-    double currentmAs = batteryCurrent / 3.6;
-
-    // minimum consumption + random fluctuation clamped to max 1mA/s to account for running electronics
-    const double mAMin = std::min(0.2, (0.5 + randf() * 0.25) / std::max(mSimState->batteryState.batVoltageSag, 0.01f));
-    currentmAs = std::max(currentmAs, mAMin );
+    // minimum consumption of ~ 5W + random fluctuation of 0.5W
+    const float mAMin = (5.0 + randf() * 0.25) / std::max(mSimState->batteryState.batVoltageSag, 0.01f);
+    batteryCurrent = std::max(batteryCurrent, mAMin );
 
 
     // 1W = 1V * 1A
     // P = I * V
 
     // milliAmpSeconds * 3600 / 1000
-    mSimState->batteryState.amperage = currentmAs * 3.6;
-    mSimState->batteryState.batCapacity -= currentmAs * dt;
+    mSimState->batteryState.amperage = batteryCurrent;
+    mSimState->batteryState.batCapacity -= batteryCurrent / 3.6 * dt; // 3.6 = current to mA / s 
     mSimState->batteryState.mAhDrawn = mSimState->stateInit.quadBatCapacityCharged - mSimState->batteryState.batCapacity;
 
     // negative cappa allows to drop voltage below 3.5V
