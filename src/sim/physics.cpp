@@ -581,8 +581,10 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
         // 1. Push the fresh PWM command into the history buffer
         motors[i].pwmHistory.push_back(motors[i].pwm);
 
-        // 2. Define the desired physical ESC/commutation delay (e.g., 1.0 to 4.0 ms)
-        constexpr float esc_delay_seconds = 0.002f; 
+        // 2. The ESC latency: a DShot600 frame (27 us), the ESC's control loop and
+        // one PWM period, about 0.3 ms in all. 2 ms with the 100 Hz filter below
+        // added about 44 deg of phase lag at 35 Hz, and quads oscillated at full throttle.
+        constexpr float esc_delay_seconds = 0.0003f;
         size_t delay_samples = static_cast<size_t>(esc_delay_seconds / std::max(dt, 0.000001));
         if (delay_samples < 1) delay_samples = 1;
 
@@ -593,8 +595,9 @@ float Physics::motorTorque(float volts, float rpm, float kV, float R, float I0) 
             motors[i].pwmHistory.pop_front();
         }
 
-        // 4. Feed the delayed PWM into the low-pass filter (which simulates inductive rise time)
-        volts = motors[i].pwmLowPassFilter.update(delayed_pwm, dt, 100.0f) * vbat;
+        // 4. Feed the delayed PWM into the low-pass filter (which simulates inductive rise time:
+        // L/R of a 5-inch motor winding is about 0.15 ms, a 1 kHz corner)
+        volts = motors[i].pwmLowPassFilter.update(delayed_pwm, dt, 1000.0f) * vbat;
       }
 
       // Add this right before `motorTorque()` is called
